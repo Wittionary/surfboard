@@ -1,0 +1,194 @@
+import { afterEach, describe, expect, test } from "bun:test";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { AdoClient } from "../../src/server/adoClient.ts";
+import {
+  getCachedByAdoId,
+  openDb,
+  updateAcceptedBaseline,
+  type DbHandle,
+} from "../../src/server/db.ts";
+import { fieldHash, relationHash } from "../../src/server/hash.ts";
+import { pushParentAndChildren } from "../../src/server/syncEngine.ts";
+import { scanWorkspace, indexWorkspace } from "../../src/server/workspace.ts";
+import { parseYamlFile } from "../../src/server/yamlStore.ts";
+
+const FIXTURE_TEMPLATES = resolve(import.meta.dir, "../fixtures/templates");
+const tempDirs: string[] = [];
+const dbHandles: DbHandle[] = [];
+
+afterEach(() => {
+  while (dbHandles.length > 0) dbHandles.pop()?.close();
+  while (tempDirs.length > 0) {
+    const d = tempDirs.pop();
+    if (d) rmSync(d, { recursive: true, force: true });
+  }
+});
+
+function setup(yaml: string, baselineRev = 5): { workspaceDir: string; dbHandle: DbHandle } {
+  const workspaceDir = mkdtempSync(join(tmpdir(), "surfboard-update-"));
+  tempDirs.push(workspaceDir);
+  const templateDir = join(workspaceDir, "templates");
+  mkdirSync(templateDir, { recursive: true });
+  for (const name of [
+    "epic.schema.yaml",
+    "feature.schema.yaml",
+    "pbi.schema.yaml",
+    "enabler.schema.yaml",
+    "task.schema.yaml",
+  ]) {
+    copyFileSync(join(FIXTURE_TEMPLATES, name), join(templateDir, name));
+  }
+  mkdirSync(join(workspaceDir, "workitems"), { recursive: true });
+  writeFileSync(join(workspaceDir, "workitems", "tree.yaml"), yaml, "utf8");
+  const dbHandle = openDb({ workspaceDir, path: ":memory:" });
+  dbHandles.push(dbHandle);
+  const scan = scanWorkspace({ workspaceDir, templateDir });
+  indexWorkspace(dbHandle.db, scan);
+  for (const doc of parseYamlFile(join(workspaceDir, "workitems", "tree.yaml"))) {
+    const item = doc.content;
+    if (!item || item.metadata.adoId === undefined) continue;
+    updateAcceptedBaseline(dbHandle.db, {
+      localId: item.metadata.localId,
+      adoId: item.metadata.adoId,
+      rev: baselineRev,
+      fieldHash: fieldHash(item),
+      relationHash: relationHash(item),
+      syncStatus: "synced",
+    });
+  }
+  return { workspaceDir, dbHandle };
+}
+
+function client(handler: (url: string, init?: RequestInit) => Response | Promise<Response>): AdoClient {
+  return new AdoClient({
+    organization: "goalliant",
+    project: "Alliant",
+    apiVersion: "7.1",
+    pat: "fake",
+    fetchImpl: ((url: RequestInfo | URL, init?: RequestInit): Promise<Response> =>
+      Promise.resolve(handler(String(url), init))) as typeof fetch,
+  });
+}
+
+const REMOTE_FEATURE = {
+  id: 100,
+  rev: 5,
+  fields: {
+    "System.WorkItemType": "Feature",
+    "System.Title": "Feature A",
+    "System.Rev": 5,
+    "System.Parent": 50,
+  },
+};
+const REMOTE_PBI = {
+  id: 200,
+  rev: 5,
+  fields: {
+    "System.WorkItemType": "Product Backlog Item",
+    "System.Title": "PBI A",
+    "System.Rev": 5,
+    "System.Parent": 100,
+  },
+};
+
+const STANDARD_YAML = `apiVersion: surfboard.ado/v1
+kind: Feature
+metadata:
+  localId: feature-a
+  adoId: 100
+spec:
+  parent:
+    adoId: 50
+  fields:
+    System.Title: Feature A
+---
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-a
+  adoId: 200
+spec:
+  parent:
+    localId: feature-a
+    adoId: 100
+  fields:
+    System.Title: PBI A updated
+`;
+
+describe("push update — existing items", () => {
+  test("every update patch starts with a /rev test op equal to cached rev", async () => {
+    const { workspaceDir, dbHandle } = setup(STANDARD_YAML);
+    const patchBodies: unknown[][] = [];
+    const c = client((url, init) => {
+      if (init?.method === "PATCH") {
+        patchBodies.push(JSON.parse(String(init.body)));
+        return new Response(
+          JSON.stringify({ id: url.includes("/100") ? 100 : 200, rev: 6, fields: {} }),
+          { status: 200 },
+        );
+      }
+      return new Response(
+        JSON.stringify({ count: 2, value: [REMOTE_FEATURE, REMOTE_PBI] }),
+        { status: 200 },
+      );
+    });
+    const result = await pushParentAndChildren(
+      { client: c, db: dbHandle.db, workspaceDir },
+      { parent: { localId: "feature-a" }, includeParent: true },
+    );
+    expect(result.status).toBe("success");
+    expect(patchBodies.length).toBe(2);
+    for (const body of patchBodies) {
+      expect(body[0]).toEqual({ op: "test", path: "/rev", value: 5 });
+    }
+  });
+
+  test("updates baseline only after ADO success", async () => {
+    const { workspaceDir, dbHandle } = setup(STANDARD_YAML);
+    const c = client((url, init) => {
+      if (init?.method === "PATCH") {
+        // Simulate failure for the PBI patch only.
+        if (url.includes("/200")) {
+          return new Response("conflict", { status: 409, statusText: "Conflict" });
+        }
+        return new Response(JSON.stringify({ id: 100, rev: 6, fields: {} }), { status: 200 });
+      }
+      return new Response(
+        JSON.stringify({ count: 2, value: [REMOTE_FEATURE, REMOTE_PBI] }),
+        { status: 200 },
+      );
+    });
+    const result = await pushParentAndChildren(
+      { client: c, db: dbHandle.db, workspaceDir },
+      { parent: { localId: "feature-a" }, includeParent: true },
+    );
+    expect(result.status).toBe("partial_failure");
+    // Parent was updated successfully, baseline now rev 6.
+    const featureCache = getCachedByAdoId(dbHandle.db, 100);
+    expect(featureCache?.lastKnownRev).toBe(6);
+    // PBI failed; baseline stays at 5.
+    const pbiCache = getCachedByAdoId(dbHandle.db, 200);
+    expect(pbiCache?.lastKnownRev).toBe(5);
+  });
+
+  test("ADO 4xx surfaces as failed result, not blocked", async () => {
+    const { workspaceDir, dbHandle } = setup(STANDARD_YAML);
+    const c = client((url, init) => {
+      if (init?.method === "PATCH") {
+        return new Response("bad request", { status: 400, statusText: "Bad Request" });
+      }
+      return new Response(
+        JSON.stringify({ count: 2, value: [REMOTE_FEATURE, REMOTE_PBI] }),
+        { status: 200 },
+      );
+    });
+    const result = await pushParentAndChildren(
+      { client: c, db: dbHandle.db, workspaceDir },
+      { parent: { localId: "feature-a" }, includeParent: true },
+    );
+    expect(result.status).toBe("partial_failure");
+    expect(result.items.some((i) => i.status === "failed")).toBe(true);
+  });
+});

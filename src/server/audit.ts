@@ -164,13 +164,21 @@ function safeParse(text: string): unknown {
   }
 }
 
-const AUTH_HEADER_PATTERN = /(?:authorization|x-ms-authentication)\s*[:=]\s*(?:Basic|Bearer)?\s*[A-Za-z0-9+/=_\-.]+/gi;
+// Matches the value half of an Authorization-style header, whether the surrounding
+// payload is HTTP-style ("Authorization: Basic xyz") or JSON-encoded
+// ("\"Authorization\":\"Basic xyz\""). Capture group 1 is the header name match.
+const AUTH_HEADER_VALUE_PATTERN =
+  /(?:authorization|x-ms-authentication)["']?\s*[:=]\s*["']?(?:(?:Basic|Bearer)\s+)?[A-Za-z0-9+/=_\-.]+/gi;
+
+// Standalone "Basic <base64>" or "Bearer <token>" anywhere.
+const STANDALONE_AUTH_PATTERN = /\b(?:Basic|Bearer)\s+[A-Za-z0-9+/=_\-.]+/g;
 
 export function redact(value: string, pat?: string): string {
   let out = value;
   if (pat && pat.length > 0) {
     out = out.split(pat).join("[REDACTED_PAT]");
   }
-  out = out.replace(AUTH_HEADER_PATTERN, "[REDACTED_AUTH]");
+  out = out.replace(AUTH_HEADER_VALUE_PATTERN, "[REDACTED_AUTH]");
+  out = out.replace(STANDALONE_AUTH_PATTERN, "[REDACTED_AUTH]");
   return out;
 }
