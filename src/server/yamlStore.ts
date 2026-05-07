@@ -6,7 +6,7 @@
 
 import { readdirSync, readFileSync, writeFileSync, statSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
-import { Document, parseAllDocuments, stringify as yamlStringify } from "yaml";
+import { parseAllDocuments, stringify as yamlStringify } from "yaml";
 import type { LocalWorkItem } from "../shared/types.ts";
 
 export type WorkspaceFile = {
@@ -109,22 +109,20 @@ export function readDocument(path: string, documentIndex: number): ParsedDocumen
  */
 export function writeDocument(path: string, documentIndex: number, item: LocalWorkItem): void {
   ensureParentDir(path);
-  const text = existsSync(path) ? readFileSync(path, "utf8") : "";
-  const docs = text.trim().length > 0 ? parseAllDocuments(text) : [];
+  const values = readDocumentValues(path);
+  const replacement = serializableContent(item);
 
-  const replacement = new Document(serializableContent(item));
-
-  if (documentIndex < docs.length) {
-    docs[documentIndex] = replacement;
-  } else if (documentIndex === docs.length) {
-    docs.push(replacement);
+  if (documentIndex < values.length) {
+    values[documentIndex] = replacement;
+  } else if (documentIndex === values.length) {
+    values.push(replacement);
   } else {
     throw new Error(
-      `writeDocument: index ${documentIndex} is beyond end of file with ${docs.length} documents`,
+      `writeDocument: index ${documentIndex} is beyond end of file with ${values.length} documents`,
     );
   }
 
-  writeFileSync(path, serializeDocuments(docs), "utf8");
+  writeFileSync(path, serializeValues(values), "utf8");
 }
 
 /**
@@ -133,11 +131,10 @@ export function writeDocument(path: string, documentIndex: number, item: LocalWo
  */
 export function appendDocument(path: string, item: LocalWorkItem): number {
   ensureParentDir(path);
-  const text = existsSync(path) ? readFileSync(path, "utf8") : "";
-  const docs = text.trim().length > 0 ? parseAllDocuments(text) : [];
-  docs.push(new Document(serializableContent(item)));
-  writeFileSync(path, serializeDocuments(docs), "utf8");
-  return docs.length - 1;
+  const values = readDocumentValues(path);
+  values.push(serializableContent(item));
+  writeFileSync(path, serializeValues(values), "utf8");
+  return values.length - 1;
 }
 
 /**
@@ -153,13 +150,20 @@ function ensureParentDir(filePath: string): void {
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 }
 
-function serializeDocuments(docs: Document[]): string {
-  if (docs.length === 0) return "";
-  // Documents parsed as 2nd+ in a multi-doc file carry a docStart marker that
-  // `stringify(doc)` would re-emit, producing duplicate `---` separators on
-  // round-trip. Stringify each value fresh and join with explicit markers.
-  return docs
-    .map((doc) => yamlStringify(doc.toJS(), { lineWidth: 0 }))
+function readDocumentValues(path: string): unknown[] {
+  if (!existsSync(path)) return [];
+  const text = readFileSync(path, "utf8");
+  if (text.trim().length === 0) return [];
+  return parseAllDocuments(text).map((doc) => doc.toJS());
+}
+
+function serializeValues(values: readonly unknown[]): string {
+  if (values.length === 0) return "";
+  // Stringify each plain JS value and join with explicit document markers.
+  // This regenerates formatting (acceptable per spec §5.2) and avoids any
+  // duplicate `---` markers that round-tripping parsed Documents can produce.
+  return values
+    .map((value) => yamlStringify(value, { lineWidth: 0 }))
     .join("---\n");
 }
 
