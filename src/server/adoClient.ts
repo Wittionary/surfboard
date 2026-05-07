@@ -65,6 +65,16 @@ export class AdoClient {
     this.baseUrl = options.baseUrl ?? "https://dev.azure.com";
   }
 
+  /** Returns the configured organization name. */
+  get organization(): string {
+    return this.options.organization;
+  }
+
+  /** Returns the configured project name. */
+  get project(): string {
+    return this.options.project;
+  }
+
   /** Project-scoped GET, parses JSON. */
   async getJson<T>(path: string, opts: AdoRequestOptions = {}): Promise<T> {
     return this.request<T>("GET", this.projectUrl(path, opts.query));

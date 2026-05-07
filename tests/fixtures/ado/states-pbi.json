@@ -1,0 +1,9 @@
+{
+  "value": [
+    { "name": "New", "category": "Proposed" },
+    { "name": "Approved", "category": "Proposed" },
+    { "name": "Committed", "category": "InProgress" },
+    { "name": "Done", "category": "Completed" },
+    { "name": "Removed", "category": "Removed" }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "value": [
+    { "referenceName": "System.Title", "name": "Title", "type": "string", "required": true },
+    { "referenceName": "System.Description", "name": "Description", "type": "html" },
+    { "referenceName": "System.State", "name": "State", "type": "string" },
+    { "referenceName": "System.AssignedTo", "name": "Assigned To", "type": "identity" },
+    { "referenceName": "Microsoft.VSTS.Common.Priority", "name": "Priority", "type": "integer", "allowedValues": [1, 2, 3, 4] },
+    { "referenceName": "Microsoft.VSTS.Scheduling.Effort", "name": "Effort", "type": "double" },
+    { "referenceName": "System.Tags", "name": "Tags", "type": "string" }
+  ]
+}

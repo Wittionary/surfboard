@@ -1,0 +1,9 @@
+{
+  "value": [
+    { "name": "Epic", "referenceName": "Microsoft.VSTS.WorkItemTypes.Epic" },
+    { "name": "Feature", "referenceName": "Microsoft.VSTS.WorkItemTypes.Feature" },
+    { "name": "Product Backlog Item", "referenceName": "Microsoft.VSTS.WorkItemTypes.PBI" },
+    { "name": "Enabler", "referenceName": "Custom.Enabler" },
+    { "name": "Task", "referenceName": "Microsoft.VSTS.WorkItemTypes.Task" }
+  ]
+}

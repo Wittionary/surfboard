@@ -1,0 +1,11 @@
+{
+  "id": "00000000-1111-2222-3333-444444444444",
+  "name": "Alliant",
+  "description": "Test project fixture (Surfboard)",
+  "capabilities": {
+    "processTemplate": {
+      "templateName": "Scrum",
+      "templateTypeId": "6b724908-ef14-45cf-84f8-768b5384da45"
+    }
+  }
+}
