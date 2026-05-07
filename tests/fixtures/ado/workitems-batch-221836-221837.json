@@ -1,0 +1,46 @@
+{
+  "count": 2,
+  "value": [
+    {
+      "id": 221836,
+      "rev": 3,
+      "fields": {
+        "System.Id": 221836,
+        "System.WorkItemType": "Product Backlog Item",
+        "System.Title": "Sandbox PBI A",
+        "System.State": "New",
+        "System.Rev": 3,
+        "System.Parent": 221835,
+        "Microsoft.VSTS.Common.Priority": 2
+      },
+      "relations": [
+        {
+          "rel": "System.LinkTypes.Hierarchy-Reverse",
+          "url": "https://dev.azure.com/goalliant/_apis/wit/workItems/221835",
+          "attributes": { "name": "Parent" }
+        }
+      ],
+      "url": "https://dev.azure.com/goalliant/_apis/wit/workItems/221836"
+    },
+    {
+      "id": 221837,
+      "rev": 5,
+      "fields": {
+        "System.Id": 221837,
+        "System.WorkItemType": "Product Backlog Item",
+        "System.Title": "Sandbox PBI B",
+        "System.State": "Approved",
+        "System.Rev": 5,
+        "System.Parent": 221835
+      },
+      "relations": [
+        {
+          "rel": "System.LinkTypes.Hierarchy-Reverse",
+          "url": "https://dev.azure.com/goalliant/_apis/wit/workItems/221835",
+          "attributes": { "name": "Parent" }
+        }
+      ],
+      "url": "https://dev.azure.com/goalliant/_apis/wit/workItems/221837"
+    }
+  ]
+}

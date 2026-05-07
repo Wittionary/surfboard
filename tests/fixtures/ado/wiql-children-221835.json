@@ -1,0 +1,12 @@
+{
+  "queryType": "flat",
+  "queryResultType": "workItem",
+  "asOf": "2026-05-07T10:00:00Z",
+  "columns": [
+    { "referenceName": "System.Id", "name": "ID", "url": "https://example.invalid" }
+  ],
+  "workItems": [
+    { "id": 221836, "url": "https://dev.azure.com/goalliant/_apis/wit/workItems/221836" },
+    { "id": 221837, "url": "https://dev.azure.com/goalliant/_apis/wit/workItems/221837" }
+  ]
+}

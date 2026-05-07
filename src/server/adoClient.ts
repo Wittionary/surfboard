@@ -202,3 +202,120 @@ export function redactSecrets(value: string, pat: string): string {
 function stripLeadingSlash(path: string): string {
   return path.startsWith("/") ? path.slice(1) : path;
 }
+
+// ---------------------------------------------------------------------------
+// Work item shapes (subset of the ADO 7.1 response format we depend on).
+// ---------------------------------------------------------------------------
+
+export type AdoRelation = {
+  rel: string;
+  url: string;
+  attributes?: Record<string, unknown>;
+};
+
+export type AdoWorkItem = {
+  id: number;
+  rev: number;
+  fields: Record<string, unknown>;
+  relations?: AdoRelation[];
+  url?: string;
+};
+
+export type AdoWorkItemUpdate = {
+  id: number;
+  rev: number;
+  revisedDate?: string;
+  revisedBy?: { displayName?: string; uniqueName?: string };
+  fields?: Record<string, { oldValue?: unknown; newValue?: unknown }>;
+  relations?: { added?: AdoRelation[]; removed?: AdoRelation[]; updated?: AdoRelation[] };
+};
+
+export type WiqlQueryResult = {
+  workItems: Array<{ id: number; url?: string }>;
+  workItemRelations?: Array<{
+    source?: { id: number };
+    target?: { id: number };
+    rel: string | null;
+  }>;
+};
+
+export type GetWorkItemOptions = {
+  /** ADO `$expand` value. Defaults to "Relations" so parent links are returned. */
+  expand?: "None" | "Relations" | "Fields" | "Links" | "All";
+};
+
+// ---------------------------------------------------------------------------
+// AdoClient methods for reading work items
+// ---------------------------------------------------------------------------
+
+export async function getWorkItem(
+  client: AdoClient,
+  id: number,
+  options: GetWorkItemOptions = {},
+): Promise<AdoWorkItem> {
+  return client.getJson<AdoWorkItem>(`wit/workitems/${id}`, {
+    query: { $expand: options.expand ?? "Relations" },
+  });
+}
+
+export async function getWorkItems(
+  client: AdoClient,
+  ids: readonly number[],
+  options: GetWorkItemOptions = {},
+): Promise<AdoWorkItem[]> {
+  if (ids.length === 0) return [];
+  type Resp = { value: AdoWorkItem[]; count: number };
+  const data = await client.getJson<Resp>(`wit/workitemsbatch`, {
+    query: undefined,
+  }).catch(async () => {
+    // Fallback to /workitems?ids=… for older API surfaces.
+    return client.getJson<Resp>(`wit/workitems`, {
+      query: { ids: ids.join(","), $expand: options.expand ?? "Relations" },
+    });
+  });
+  return data.value;
+}
+
+export async function getUpdates(
+  client: AdoClient,
+  id: number,
+): Promise<AdoWorkItemUpdate[]> {
+  type Resp = { value: AdoWorkItemUpdate[] };
+  const data = await client.getJson<Resp>(`wit/workitems/${id}/updates`);
+  return data.value;
+}
+
+/**
+ * Returns the IDs of direct children of `parentId` using a WIQL query against
+ * `[System.Parent]`. The caller fetches full work items via `getWorkItems` if
+ * needed.
+ */
+export async function getDirectChildrenIds(
+  client: AdoClient,
+  parentId: number,
+): Promise<number[]> {
+  const result = await client.postJson<WiqlQueryResult>("wit/wiql", {
+    query: `SELECT [System.Id] FROM WorkItems WHERE [System.Parent] = ${parentId}`,
+  });
+  return result.workItems.map((w) => w.id);
+}
+
+export async function getDirectChildren(
+  client: AdoClient,
+  parentId: number,
+  options: GetWorkItemOptions = {},
+): Promise<AdoWorkItem[]> {
+  const ids = await getDirectChildrenIds(client, parentId);
+  return getWorkItems(client, ids, options);
+}
+
+/**
+ * Returns true when the response indicates the work item is soft-deleted
+ * (in the recycle bin). Hard-deleted items return 404 from /wit/workitems
+ * and never reach this helper.
+ */
+export function isDeletedWorkItem(item: AdoWorkItem | null | undefined): boolean {
+  if (!item) return true;
+  const flag = item.fields["System.IsDeleted"];
+  return flag === true || flag === "true";
+}

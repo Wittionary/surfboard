@@ -1,0 +1,22 @@
+{
+  "id": 221835,
+  "rev": 12,
+  "fields": {
+    "System.Id": 221835,
+    "System.WorkItemType": "Feature",
+    "System.Title": "Surfboard sandbox parent",
+    "System.State": "New",
+    "System.Rev": 12,
+    "System.AreaPath": "Alliant",
+    "System.IterationPath": "Alliant",
+    "System.Tags": "sandbox; surfboard"
+  },
+  "relations": [
+    {
+      "rel": "System.LinkTypes.Hierarchy-Reverse",
+      "url": "https://dev.azure.com/goalliant/_apis/wit/workItems/200000",
+      "attributes": { "name": "Parent" }
+    }
+  ],
+  "url": "https://dev.azure.com/goalliant/_apis/wit/workItems/221835"
+}
