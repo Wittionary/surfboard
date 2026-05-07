@@ -3,7 +3,12 @@
 // and status pills for remote-aware sync states.
 
 import type { WorkItemView, WorkspaceStatusResponse, ParentViewResponse } from "../server/routes.ts";
-import type { ValidationIssue } from "../shared/types.ts";
+import type {
+  ItemOperationResult,
+  OperationResult,
+  PullOverwriteConfirmation,
+  ValidationIssue,
+} from "../shared/types.ts";
 
 export function escape(value: string | number | undefined | null): string {
   if (value === undefined || value === null) return "";
@@ -108,5 +113,51 @@ export function buildLocalViewModel(parent: ParentViewResponse | null): LocalVie
   return {
     parent: parent?.parent ?? null,
     children: parent?.children ?? [],
+  };
+}
+
+/**
+ * Extracts the items from a pull `OperationResult` that need user confirmation
+ * to overwrite local YAML. The frontend renders a popup per spec §8.6 with
+ * cancel as the default action.
+ */
+export function extractOverwriteRequests(
+  result: OperationResult,
+): Array<{ item: ItemOperationResult; confirmation: PullOverwriteConfirmation }> {
+  return result.items
+    .filter((item) => item.status === "requires_confirmation" && item.confirmationRequired === "overwrite_yaml")
+    .filter((item) => item.adoId !== undefined && item.yamlPath !== undefined && item.remoteRev !== undefined)
+    .map((item) => ({
+      item,
+      confirmation: {
+        adoId: item.adoId as number,
+        yamlPath: item.yamlPath as string,
+        yamlDocumentIndex: item.yamlDocumentIndex ?? 0,
+        remoteRev: item.remoteRev as number,
+        confirmed: true,
+        ...(item.localId ? { localId: item.localId } : {}),
+      },
+    }));
+}
+
+export type ConfirmPopupModel = {
+  title: string;
+  workItemType: string;
+  localId: string;
+  adoId: string;
+  yamlPath: string;
+  cachedRev: string;
+  remoteRev: string;
+};
+
+export function buildConfirmPopup(item: ItemOperationResult): ConfirmPopupModel {
+  return {
+    title: `Overwrite local YAML?`,
+    workItemType: item.workItemType ?? "",
+    localId: item.localId ?? "(unknown)",
+    adoId: item.adoId !== undefined ? String(item.adoId) : "—",
+    yamlPath: item.yamlPath ?? "",
+    cachedRev: item.cachedRev !== undefined ? String(item.cachedRev) : "—",
+    remoteRev: item.remoteRev !== undefined ? String(item.remoteRev) : "—",
   };
 }

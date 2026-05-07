@@ -21,10 +21,10 @@
       </dl>
       <div class="parent-hero__actions" data-region="global-actions">
         <button type="button" data-action="pull-all" disabled>Pull all</button>
+        <button type="button" data-action="pull-selected" disabled>Pull selected</button>
         <button type="button" data-action="push-all" disabled>Push all</button>
         <button type="button" data-action="validate-all" disabled>Validate all</button>
         <button type="button" data-action="refresh" disabled>Refresh</button>
-        <button type="button" data-action="health" disabled>Health</button>
       </div>
     </header>
 
@@ -55,6 +55,28 @@
       <span data-field="health">Health: —</span>
       <span data-field="version">Version: —</span>
     </footer>
+
+    <div class="overwrite-modal" data-region="overwrite-modal" hidden>
+      <div class="overwrite-modal__panel">
+        <h2>Overwrite local YAML?</h2>
+        <p>
+          The remote item changed since the last successful pull. Replacing the
+          local YAML cannot be undone.
+        </p>
+        <dl>
+          <div><dt>Type</dt><dd data-field="modal-type">—</dd></div>
+          <div><dt>Local ID</dt><dd data-field="modal-localId">—</dd></div>
+          <div><dt>ADO ID</dt><dd data-field="modal-adoId">—</dd></div>
+          <div><dt>Cached Rev</dt><dd data-field="modal-cachedRev">—</dd></div>
+          <div><dt>Remote Rev</dt><dd data-field="modal-remoteRev">—</dd></div>
+          <div><dt>Path</dt><dd data-field="modal-yamlPath">—</dd></div>
+        </dl>
+        <div class="overwrite-modal__buttons">
+          <button type="button" data-action="modal-cancel" autofocus>Cancel</button>
+          <button type="button" data-action="modal-confirm">Overwrite</button>
+        </div>
+      </div>
+    </div>
 
     <script type="module" src="./app.js"></script>
   </body>

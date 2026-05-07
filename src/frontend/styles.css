@@ -140,3 +140,36 @@ button[disabled] { opacity: 0.55; cursor: not-allowed; }
 .status-pill--ok { background: rgba(63, 185, 80, 0.15); color: var(--ok); }
 .status-pill--warn { background: rgba(210, 153, 34, 0.15); color: var(--warn); }
 .status-pill--fail { background: rgba(248, 81, 73, 0.15); color: var(--fail); }
+
+.overwrite-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: center;
+  z-index: 100;
+}
+.overwrite-modal[hidden] { display: none; }
+.overwrite-modal__panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 520px;
+  width: 90%;
+}
+.overwrite-modal__panel h2 { margin: 0 0 8px; font-size: 16px; }
+.overwrite-modal__panel p { color: var(--muted); }
+.overwrite-modal__panel dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  margin: 16px 0;
+}
+.overwrite-modal__panel dt { color: var(--muted); font-size: 11px; }
+.overwrite-modal__panel dd { margin: 0; font-variant-numeric: tabular-nums; }
+.overwrite-modal__buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
