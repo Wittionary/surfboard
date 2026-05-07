@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Surfboard</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="parent-hero" data-region="parent">
+      <div class="parent-hero__title">
+        <span class="parent-hero__type" data-field="kind">—</span>
+        <h1 data-field="title">No parent selected</h1>
+      </div>
+      <dl class="parent-hero__meta">
+        <div><dt>ADO ID</dt><dd data-field="adoId">—</dd></div>
+        <div><dt>State</dt><dd data-field="state">—</dd></div>
+        <div><dt>Rev</dt><dd data-field="rev">—</dd></div>
+        <div><dt>Sync</dt><dd data-field="syncStatus">—</dd></div>
+        <div><dt>Path</dt><dd data-field="yamlPath">—</dd></div>
+      </dl>
+      <div class="parent-hero__actions" data-region="global-actions">
+        <button type="button" data-action="pull-all" disabled>Pull all</button>
+        <button type="button" data-action="push-all" disabled>Push all</button>
+        <button type="button" data-action="validate-all" disabled>Validate all</button>
+        <button type="button" data-action="refresh" disabled>Refresh</button>
+        <button type="button" data-action="health" disabled>Health</button>
+      </div>
+    </header>
+
+    <main class="child-grid" data-region="children">
+      <table>
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Type</th>
+            <th>Title</th>
+            <th>Local ID</th>
+            <th>ADO ID</th>
+            <th>State</th>
+            <th>Rev</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody data-region="children-body">
+          <tr class="child-grid__placeholder">
+            <td colspan="8">No children loaded.</td>
+          </tr>
+        </tbody>
+      </table>
+    </main>
+
+    <footer class="status-footer" data-region="footer">
+      <span data-field="lastSync">Last sync: —</span>
+      <span data-field="health">Health: —</span>
+      <span data-field="version">Version: —</span>
+    </footer>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
