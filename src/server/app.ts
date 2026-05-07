@@ -8,7 +8,7 @@ import type { AppConfig } from "./config.ts";
 import type { DbHandle } from "./db.ts";
 import { FileWatcher } from "./fileWatcher.ts";
 import { buildHealthReport } from "./health.ts";
-import { registerLocalRoutes } from "./routes.ts";
+import { registerLocalRoutes, registerPullRoutes } from "./routes.ts";
 import { registerStatic } from "./static.ts";
 import { WorkspaceState } from "./workspaceState.ts";
 
@@ -77,6 +77,16 @@ export function buildAppHandle(deps: AppDeps): AppHandle {
     });
   } else {
     adoClient = null;
+  }
+
+  if (workspace && deps.dbHandle && adoClient) {
+    registerPullRoutes(fastify, {
+      workspace,
+      client: adoClient,
+      db: deps.dbHandle.db,
+      workspaceDir: deps.config.workspaceDir,
+      pat: deps.config.ado?.pat,
+    });
   }
 
   fastify.get("/api/health", async () => {

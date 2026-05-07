@@ -3,10 +3,16 @@
 // webhook routes come in later phases.
 
 import type { FastifyInstance } from "fastify";
+import type { AdoClient } from "./adoClient.ts";
+import type { Database } from "bun:sqlite";
+import { pullParentAndChildren, pullSingleItem } from "./syncEngine.ts";
 import type { WorkspaceState } from "./workspaceState.ts";
 import type { WorkspaceDocument } from "./workspace.ts";
 import type {
   LocalWorkItem,
+  OperationResult,
+  PullAllRequest,
+  PullItemRequest,
   ValidateRequest,
   ValidationIssue,
   WorkItemType,
@@ -49,6 +55,53 @@ export type ParentViewResponse = {
 export type RouteDeps = {
   workspace: WorkspaceState;
 };
+
+export type PullRouteDeps = {
+  workspace: WorkspaceState;
+  client: AdoClient;
+  db: Database;
+  workspaceDir: string;
+  pat?: string;
+};
+
+export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): void {
+  app.post<{ Body: PullAllRequest }>("/api/pull/all", async (req, reply): Promise<OperationResult | undefined> => {
+    const body = req.body;
+    if (!body || (body.parent.localId === undefined && body.parent.adoId === undefined)) {
+      return reply.code(400).send({ error: "parent selector required (localId or adoId)" });
+    }
+    const result = await pullParentAndChildren(
+      {
+        client: deps.client,
+        db: deps.db,
+        workspaceDir: deps.workspaceDir,
+        pat: deps.pat,
+      },
+      { selector: body.parent, confirmations: body.confirmations },
+    );
+    // Refresh local cache view so subsequent /api/view reflects new YAML.
+    deps.workspace.refresh();
+    return result;
+  });
+
+  app.post<{ Body: PullItemRequest }>("/api/pull/item", async (req, reply): Promise<OperationResult | undefined> => {
+    const body = req.body;
+    if (!body || (body.item.localId === undefined && body.item.adoId === undefined)) {
+      return reply.code(400).send({ error: "item selector required (localId or adoId)" });
+    }
+    const result = await pullSingleItem(
+      {
+        client: deps.client,
+        db: deps.db,
+        workspaceDir: deps.workspaceDir,
+        pat: deps.pat,
+      },
+      { selector: body.item, confirmation: body.confirmation },
+    );
+    deps.workspace.refresh();
+    return result;
+  });
+}
 
 export function registerLocalRoutes(app: FastifyInstance, deps: RouteDeps): void {
   app.get("/api/workspace/status", async (): Promise<WorkspaceStatusResponse> => {

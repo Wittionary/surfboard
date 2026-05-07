@@ -22,6 +22,7 @@ import {
   upsertWorkItemCache,
 } from "./db.ts";
 import { fieldHash, relationHash } from "./hash.ts";
+import { writeAuditEntry, type AuditAction } from "./audit.ts";
 import { appendDocument, writeDocument } from "./yamlStore.ts";
 import type {
   ItemOperationResult,
@@ -44,6 +45,8 @@ export type SyncEngineDeps = {
   client: AdoClient;
   db: Database;
   workspaceDir: string;
+  /** When provided, audit_log rows scrub this PAT from any request/response summaries. */
+  pat?: string;
 };
 
 export type PullParentInput = {
@@ -71,27 +74,31 @@ export async function pullParentAndChildren(
   try {
     parent = await resolveParent(deps, input.selector);
   } catch (err) {
-    items.push({
+    const failed: ItemOperationResult = {
       action: "pull",
       status: "failed",
       errorCode: "parent_fetch_failed",
       errorMessage: err instanceof Error ? err.message : String(err),
       localId: input.selector.localId,
       adoId: input.selector.adoId,
-    });
+    };
+    items.push(failed);
     summary.failed += 1;
+    auditFor(deps, operationId, failed, input);
     return { operationId, status: "failed", summary, items };
   }
 
   if (isDeletedWorkItem(parent)) {
-    items.push({
+    const blocked: ItemOperationResult = {
       action: "pull",
       status: "blocked",
       errorCode: "remote_deleted",
       errorMessage: `Parent ${parent.id} is deleted in ADO`,
       adoId: parent.id,
-    });
+    };
+    items.push(blocked);
     summary.blocked += 1;
+    auditFor(deps, operationId, blocked, input);
     return { operationId, status: "blocked", summary, items };
   }
 
@@ -99,6 +106,7 @@ export async function pullParentAndChildren(
   const parentResult = pullSingle(deps, parent, localIdByAdoId, input.confirmations ?? []);
   items.push(parentResult);
   tallySummary(summary, parentResult);
+  auditFor(deps, operationId, parentResult, input);
 
   // Update lookup so children that reference this parent get the parent.localId.
   if (parentResult.status === "success" && parentResult.localId) {
@@ -109,34 +117,154 @@ export async function pullParentAndChildren(
   try {
     children = await getDirectChildren(deps.client, parent.id);
   } catch (err) {
-    items.push({
+    const failed: ItemOperationResult = {
       action: "pull",
       status: "failed",
       errorCode: "children_fetch_failed",
       errorMessage: err instanceof Error ? err.message : String(err),
       adoId: parent.id,
-    });
+    };
+    items.push(failed);
     summary.failed += 1;
+    auditFor(deps, operationId, failed, input);
     return { operationId, status: "partial_failure", summary, items };
   }
 
   for (const child of children) {
     if (isDeletedWorkItem(child)) {
-      items.push({
+      const blocked: ItemOperationResult = {
         action: "pull",
         status: "blocked",
         errorCode: "remote_deleted",
         adoId: child.id,
-      });
+      };
+      items.push(blocked);
       summary.blocked += 1;
+      auditFor(deps, operationId, blocked, input);
       continue;
     }
     const childResult = pullSingle(deps, child, localIdByAdoId, input.confirmations ?? []);
     items.push(childResult);
     tallySummary(summary, childResult);
+    auditFor(deps, operationId, childResult, input);
   }
 
   return { operationId, status: rollupStatus(summary), summary, items };
+}
+
+/**
+ * Pulls a single item (no children) — used by POST /api/pull/item.
+ */
+export type PullItemInput = {
+  selector: WorkItemSelector;
+  confirmation?: PullOverwriteConfirmation;
+};
+
+export async function pullSingleItem(
+  deps: SyncEngineDeps,
+  input: PullItemInput,
+): Promise<OperationResult> {
+  const operationId = crypto.randomUUID();
+  const items: ItemOperationResult[] = [];
+  const summary = { validated: 0, created: 0, updated: 0, pulled: 0, blocked: 0, failed: 0 };
+
+  let remote: AdoWorkItem;
+  try {
+    remote = await resolveParent(deps, input.selector);
+  } catch (err) {
+    const failed: ItemOperationResult = {
+      action: "pull",
+      status: "failed",
+      errorCode: "fetch_failed",
+      errorMessage: err instanceof Error ? err.message : String(err),
+      localId: input.selector.localId,
+      adoId: input.selector.adoId,
+    };
+    items.push(failed);
+    summary.failed += 1;
+    auditFor(deps, operationId, failed, input);
+    return { operationId, status: "failed", summary, items };
+  }
+
+  if (isDeletedWorkItem(remote)) {
+    const blocked: ItemOperationResult = {
+      action: "pull",
+      status: "blocked",
+      errorCode: "remote_deleted",
+      adoId: remote.id,
+    };
+    items.push(blocked);
+    summary.blocked += 1;
+    auditFor(deps, operationId, blocked, input);
+    return { operationId, status: "blocked", summary, items };
+  }
+
+  const result = pullSingle(
+    deps,
+    remote,
+    buildLocalIdLookup(deps.db),
+    input.confirmation ? [input.confirmation] : [],
+  );
+  items.push(result);
+  tallySummary(summary, result);
+  auditFor(deps, operationId, result, input);
+  return { operationId, status: rollupStatus(summary), summary, items };
+}
+
+function auditFor(
+  deps: SyncEngineDeps,
+  operationId: string,
+  result: ItemOperationResult,
+  request: PullParentInput | PullItemInput,
+): void {
+  const action: AuditAction =
+    result.status === "blocked"
+      ? "block"
+      : result.status === "failed"
+        ? "fail"
+        : result.action === "create"
+          ? "create"
+          : result.action === "update"
+            ? "update"
+            : result.action === "skip"
+              ? "skip"
+              : "pull";
+  writeAuditEntry(
+    deps.db,
+    {
+      operationId,
+      action,
+      localId: result.localId,
+      adoId: result.adoId,
+      workItemType: result.workItemType,
+      yamlPath: result.yamlPath,
+      beforeRev: result.beforeRev ?? result.cachedRev,
+      afterRev: result.afterRev ?? result.remoteRev,
+      success: result.status === "success",
+      errorCode: result.errorCode,
+      errorMessage: result.errorMessage,
+      requestSummary: redactRequestForAudit(request),
+      responseSummary: {
+        action: result.action,
+        status: result.status,
+        confirmationRequired: result.confirmationRequired,
+        syncStatus: result.syncStatus,
+        cachedRev: result.cachedRev,
+        remoteRev: result.remoteRev,
+      },
+    },
+    { pat: deps.pat },
+  );
+}
+
+function redactRequestForAudit(request: PullParentInput | PullItemInput): unknown {
+  // Stripping the confirmation set is fine for audit; what matters is the
+  // selector and counts.
+  const r = request as PullParentInput & PullItemInput;
+  if (Array.isArray(r.confirmations)) {
+    return { selector: r.selector, confirmationCount: r.confirmations.length };
+  }
+  return { selector: r.selector, confirmation: r.confirmation ? true : false };
 }
 
 function rollupStatus(s: { failed: number; blocked: number }): OperationResult["status"] {
