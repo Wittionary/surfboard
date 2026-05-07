@@ -22,7 +22,7 @@ import {
   upsertWorkItemCache,
 } from "./db.ts";
 import { fieldHash, relationHash } from "./hash.ts";
-import { appendDocument } from "./yamlStore.ts";
+import { appendDocument, writeDocument } from "./yamlStore.ts";
 import type {
   ItemOperationResult,
   LocalWorkItem,
@@ -293,23 +293,80 @@ function pullSingle(
 }
 
 function overwriteYamlWithRemote(
-  _deps: SyncEngineDeps,
+  deps: SyncEngineDeps,
   localId: string,
   remote: AdoWorkItem,
-  _localIdByAdoId: Map<number, string>,
+  localIdByAdoId: Map<number, string>,
 ): ItemOperationResult {
-  // Phase 3.7 implements the actual overwrite. Phase 3.6 returns blocked so we
-  // never silently overwrite.
-  return {
-    action: "pull",
-    status: "blocked",
-    errorCode: "overwrite_not_implemented",
-    errorMessage: "Pull overwrite confirmation flow lands in Task 3.7",
+  const cached = getCached(deps.db, localId);
+  if (!cached) {
+    return {
+      action: "pull",
+      status: "failed",
+      errorCode: "cache_row_missing",
+      errorMessage: `No cache row for ${localId} during overwrite`,
+      localId,
+      adoId: remote.id,
+    };
+  }
+
+  // Map the remote item, but keep the same localId so the workspace identity
+  // is stable across the overwrite.
+  const local = mapAdoToLocal(remote, {
+    yamlPath: cached.yamlPath,
+    yamlDocumentIndex: cached.yamlDocumentIndex,
+    localIdByAdoId,
+    deriveLocalId: () => localId,
+  });
+
+  try {
+    writeDocument(cached.yamlPath, cached.yamlDocumentIndex, local);
+  } catch (err) {
+    return {
+      action: "pull",
+      status: "failed",
+      errorCode: "yaml_write_failed",
+      errorMessage: err instanceof Error ? err.message : String(err),
+      localId,
+      adoId: remote.id,
+      cachedRev: cached.lastKnownRev,
+      remoteRev: remote.rev,
+      yamlPath: cached.yamlPath,
+      yamlDocumentIndex: cached.yamlDocumentIndex,
+    };
+  }
+
+  upsertWorkItemCache(deps.db, {
     localId,
     adoId: remote.id,
-    cachedRev: undefined,
+    workItemType: local.kind,
+    yamlPath: cached.yamlPath,
+    yamlDocumentIndex: cached.yamlDocumentIndex,
+    parentLocalId: local.spec.parent?.localId,
+    parentAdoId: local.spec.parent?.adoId,
+    syncStatus: "synced",
+  });
+  updateAcceptedBaseline(deps.db, {
+    localId,
+    adoId: remote.id,
+    rev: remote.rev,
+    fieldHash: fieldHash(local),
+    relationHash: relationHash(local),
+    syncStatus: "synced",
+  });
+  return {
+    action: "update",
+    status: "success",
+    localId,
+    adoId: remote.id,
+    workItemType: local.kind,
+    yamlPath: cached.yamlPath,
+    yamlDocumentIndex: cached.yamlDocumentIndex,
+    beforeRev: cached.lastKnownRev,
+    afterRev: remote.rev,
+    cachedRev: cached.lastKnownRev,
     remoteRev: remote.rev,
-    syncStatus: "conflict_blocked",
+    syncStatus: "synced",
   };
 }
 
