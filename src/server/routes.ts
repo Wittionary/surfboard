@@ -5,7 +5,12 @@
 import type { FastifyInstance } from "fastify";
 import type { AdoClient } from "./adoClient.ts";
 import type { Database } from "bun:sqlite";
-import { pullParentAndChildren, pullSingleItem } from "./syncEngine.ts";
+import {
+  pullParentAndChildren,
+  pullSingleItem,
+  pushParentAndChildren,
+  pushSingleItem,
+} from "./syncEngine.ts";
 import type { WorkspaceState } from "./workspaceState.ts";
 import type { WorkspaceDocument } from "./workspace.ts";
 import type {
@@ -13,6 +18,8 @@ import type {
   OperationResult,
   PullAllRequest,
   PullItemRequest,
+  PushAllRequest,
+  PushItemRequest,
   ValidateRequest,
   ValidationIssue,
   WorkItemType,
@@ -97,6 +104,50 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
         pat: deps.pat,
       },
       { selector: body.item, confirmation: body.confirmation },
+    );
+    deps.workspace.refresh();
+    return result;
+  });
+
+  app.post<{ Body: PushAllRequest }>("/api/push/all", async (req, reply): Promise<OperationResult | undefined> => {
+    const body = req.body;
+    if (!body || (body.parent.localId === undefined && body.parent.adoId === undefined)) {
+      return reply.code(400).send({ error: "parent selector required (localId or adoId)" });
+    }
+    const result = await pushParentAndChildren(
+      {
+        client: deps.client,
+        db: deps.db,
+        workspaceDir: deps.workspaceDir,
+        pat: deps.pat,
+      },
+      {
+        parent: body.parent,
+        includeParent: body.includeParent,
+        childLocalIds: body.childLocalIds,
+        confirmedParentChanges: body.confirmedParentChanges,
+      },
+    );
+    deps.workspace.refresh();
+    return result;
+  });
+
+  app.post<{ Body: PushItemRequest }>("/api/push/item", async (req, reply): Promise<OperationResult | undefined> => {
+    const body = req.body;
+    if (!body || (body.item.localId === undefined && body.item.adoId === undefined)) {
+      return reply.code(400).send({ error: "item selector required (localId or adoId)" });
+    }
+    const result = await pushSingleItem(
+      {
+        client: deps.client,
+        db: deps.db,
+        workspaceDir: deps.workspaceDir,
+        pat: deps.pat,
+      },
+      {
+        selector: body.item,
+        confirmedParentChange: body.confirmedParentChange,
+      },
     );
     deps.workspace.refresh();
     return result;
