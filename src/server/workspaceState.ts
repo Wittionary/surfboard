@@ -16,10 +16,26 @@ export type WorkspaceStateSnapshot = {
   templateDir: string;
 };
 
+export type LastSyncSummary = {
+  at: string;
+  success: number;
+  failure: number;
+  blocked: number;
+};
+
 export class WorkspaceState {
   private snapshot: WorkspaceStateSnapshot | null = null;
+  private lastSyncSummary: LastSyncSummary | null = null;
 
   constructor(private readonly deps: WorkspaceStateDeps) {}
+
+  recordLastSync(summary: { success: number; failure: number; blocked: number }): void {
+    this.lastSyncSummary = { at: new Date().toISOString(), ...summary };
+  }
+
+  getLastSync(): LastSyncSummary | null {
+    return this.lastSyncSummary;
+  }
 
   /** Re-scan and re-index. Call on workspace refresh. */
   refresh(options: { pruneOrphans?: boolean } = {}): WorkspaceStateSnapshot {

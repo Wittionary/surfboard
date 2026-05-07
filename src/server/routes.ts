@@ -88,6 +88,7 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
     );
     // Refresh local cache view so subsequent /api/view reflects new YAML.
     deps.workspace.refresh();
+    deps.workspace.recordLastSync(summarizeOpResult(result));
     return result;
   });
 
@@ -106,6 +107,7 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
       { selector: body.item, confirmation: body.confirmation },
     );
     deps.workspace.refresh();
+    deps.workspace.recordLastSync(summarizeOpResult(result));
     return result;
   });
 
@@ -129,6 +131,7 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
       },
     );
     deps.workspace.refresh();
+    deps.workspace.recordLastSync(summarizeOpResult(result));
     return result;
   });
 
@@ -150,6 +153,49 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
       },
     );
     deps.workspace.refresh();
+    deps.workspace.recordLastSync(summarizeOpResult(result));
+    return result;
+  });
+}
+
+export type AuditRouteDeps = {
+  db: Database;
+};
+
+export function registerAuditRoutes(app: FastifyInstance, deps: AuditRouteDeps): void {
+  app.get<{ Querystring: { limit?: string } }>("/api/audit/recent", async (req) => {
+    const { getRecentAudit } = await import("./audit.ts");
+    const limit = req.query.limit ? Number.parseInt(req.query.limit, 10) : 50;
+    return { items: getRecentAudit(deps.db, Number.isFinite(limit) ? limit : 50) };
+  });
+  app.get<{ Params: { localId: string }; Querystring: { limit?: string } }>(
+    "/api/audit/item/:localId",
+    async (req, reply) => {
+      const localId = req.params.localId;
+      if (!localId) return reply.code(400).send({ error: "localId required" });
+      const { getAuditByLocalId } = await import("./audit.ts");
+      const limit = req.query.limit ? Number.parseInt(req.query.limit, 10) : 50;
+      return { items: getAuditByLocalId(deps.db, localId, Number.isFinite(limit) ? limit : 50) };
+    },
+  );
+}
+
+export type WebhookRouteDeps = {
+  db: Database;
+  secret: string | null;
+};
+
+export function registerWebhookRoutes(app: FastifyInstance, deps: WebhookRouteDeps): void {
+  app.post("/api/webhooks/ado", async (req, reply) => {
+    const { processWebhookEvent } = await import("./webhookServer.ts");
+    const result = processWebhookEvent(
+      { db: deps.db, secret: deps.secret },
+      req.headers as Record<string, string | string[] | undefined>,
+      req.body,
+    );
+    if (result.status === "rejected") {
+      return reply.code(401).send({ error: result.reason ?? "rejected" });
+    }
     return result;
   });
 }
@@ -272,6 +318,18 @@ function toView(wd: WorkspaceDocument): WorkItemView {
     parentAdoId: item.spec.parent?.adoId,
     validationIssues: wd.issues,
   };
+}
+
+function summarizeOpResult(result: OperationResult): { success: number; failure: number; blocked: number } {
+  let success = 0;
+  let failure = 0;
+  let blocked = 0;
+  for (const item of result.items) {
+    if (item.status === "success") success += 1;
+    else if (item.status === "failed") failure += 1;
+    else if (item.status === "blocked" || item.status === "requires_confirmation") blocked += 1;
+  }
+  return { success, failure, blocked };
 }
 
 function summarizeStatus(snapshot: ReturnType<WorkspaceState["current"]>): WorkspaceStatusResponse {

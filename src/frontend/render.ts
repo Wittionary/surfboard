@@ -4,6 +4,7 @@
 
 import type { WorkItemView, WorkspaceStatusResponse, ParentViewResponse } from "../server/routes.ts";
 import type {
+  HealthReport,
   ItemOperationResult,
   OperationResult,
   PullOverwriteConfirmation,
@@ -86,6 +87,60 @@ export function renderFooter(status: WorkspaceStatusResponse | null, healthSumma
     health: healthSummary ? `Health: ${healthSummary}` : "Health: —",
     version: "Version: 0.1.0",
   };
+}
+
+export type HealthPanelRow = {
+  label: string;
+  status: "ok" | "degraded" | "failed" | "disabled" | "unknown";
+  detail: string;
+};
+
+export function renderHealthPanel(report: HealthReport | null): HealthPanelRow[] {
+  if (!report) return [{ label: "Health", status: "unknown", detail: "loading" }];
+  const rows: HealthPanelRow[] = [
+    { label: "App", status: report.app.status, detail: `version ${report.app.version}` },
+    { label: "Config", status: report.config.status, detail: report.config.issues.join(", ") || "ok" },
+    { label: "SQLite", status: report.sqlite.status, detail: report.sqlite.error ?? report.sqlite.path ?? "ok" },
+    { label: "Workspace", status: report.workspace.status, detail: report.workspace.path ?? "—" },
+    { label: "Templates", status: report.templates.status, detail: report.templates.path ?? "—" },
+  ];
+  if (report.ado) {
+    rows.push({
+      label: "ADO Auth",
+      status: report.ado.auth,
+      detail: report.ado.lastError ?? "ok",
+    });
+    rows.push({ label: "ADO Project", status: report.ado.project, detail: "" });
+  }
+  if (report.watcher) {
+    rows.push({
+      label: "Watcher",
+      status: report.watcher.status,
+      detail: report.watcher.error ?? "ok",
+    });
+  }
+  if (report.webhook) {
+    rows.push({
+      label: "Webhook",
+      status: report.webhook.status,
+      detail: report.webhook.lastEventAt ?? "no events",
+    });
+  }
+  if (report.lastSync) {
+    rows.push({
+      label: "Last sync",
+      status: report.lastSync.failure > 0 ? "failed" : report.lastSync.blocked > 0 ? "degraded" : "ok",
+      detail: `at ${report.lastSync.at ?? "—"} • ok=${report.lastSync.success} fail=${report.lastSync.failure} blocked=${report.lastSync.blocked}`,
+    });
+  }
+  if (report.validation) {
+    rows.push({
+      label: "Validation",
+      status: report.validation.lastIssueCount > 0 ? "degraded" : "ok",
+      detail: `${report.validation.lastIssueCount} issue${report.validation.lastIssueCount === 1 ? "" : "s"}`,
+    });
+  }
+  return rows;
 }
 
 function formatTime(iso: string): string {

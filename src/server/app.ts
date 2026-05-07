@@ -8,7 +8,12 @@ import type { AppConfig } from "./config.ts";
 import type { DbHandle } from "./db.ts";
 import { FileWatcher } from "./fileWatcher.ts";
 import { buildHealthReport } from "./health.ts";
-import { registerLocalRoutes, registerPullRoutes } from "./routes.ts";
+import {
+  registerAuditRoutes,
+  registerLocalRoutes,
+  registerPullRoutes,
+  registerWebhookRoutes,
+} from "./routes.ts";
 import { registerStatic } from "./static.ts";
 import { WorkspaceState } from "./workspaceState.ts";
 
@@ -89,12 +94,24 @@ export function buildAppHandle(deps: AppDeps): AppHandle {
     });
   }
 
+  if (deps.dbHandle) {
+    registerWebhookRoutes(fastify, {
+      db: deps.dbHandle.db,
+      secret: deps.config.webhookSecret,
+    });
+    registerAuditRoutes(fastify, { db: deps.dbHandle.db });
+  }
+
   fastify.get("/api/health", async () => {
+    const lastSync = workspace?.getLastSync();
+    const lastIssueCount = workspace?.current().scan.issues.length;
     return buildHealthReport({
       config: deps.config,
       dbHandle: deps.dbHandle,
       watcher,
       adoClient,
+      ...(lastSync ? { lastSync } : {}),
+      ...(typeof lastIssueCount === "number" ? { lastIssueCount } : {}),
     });
   });
 

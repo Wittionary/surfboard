@@ -18,6 +18,15 @@ export type BuildHealthOptions = {
   watcher?: FileWatcher | null;
   /** When provided, probeAdoHealth is invoked and the result is included. */
   adoClient?: AdoClient | null;
+  /** Optional last sync summary, populated by routes after each operation. */
+  lastSync?: {
+    at?: string;
+    success: number;
+    failure: number;
+    blocked: number;
+  };
+  /** Last validation issue count, fed in by the workspace state when known. */
+  lastIssueCount?: number;
 };
 
 function dirStatus(path: string | undefined): { status: HealthStatus; path?: string; error?: string } {
@@ -103,6 +112,10 @@ export async function buildHealthReport(options: BuildHealthOptions): Promise<He
     templates,
     ...(watcher ? { watcher } : {}),
     ...(ado ? { ado } : {}),
+    ...(options.lastSync ? { lastSync: options.lastSync } : {}),
+    ...(options.lastIssueCount !== undefined
+      ? { validation: { lastIssueCount: options.lastIssueCount } }
+      : {}),
   };
 }
 
