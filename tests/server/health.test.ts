@@ -46,7 +46,7 @@ describe("/api/health", () => {
     const dbHandle = openDb({ workspaceDir: ws });
     dbHandles.push(dbHandle);
 
-    const app = buildApp({ config, dbHandle });
+    const app = buildApp({ config, dbHandle, adoClient: null });
     const report = await getHealth(app);
 
     expect(report.app.status).toBe("ok");
@@ -67,7 +67,7 @@ describe("/api/health", () => {
     const dbHandle = openDb({ workspaceDir: ws });
     dbHandles.push(dbHandle);
 
-    const app = buildApp({ config, dbHandle });
+    const app = buildApp({ config, dbHandle, adoClient: null });
     const report = await getHealth(app);
 
     expect(report.config.status).toBe("degraded");
@@ -88,7 +88,7 @@ describe("/api/health", () => {
         ADO_TEMPLATE_DIR: ws,
       },
     });
-    const app = buildApp({ config, dbHandle: null });
+    const app = buildApp({ config, dbHandle: null, adoClient: null });
     const report = await getHealth(app);
 
     expect(report.sqlite.status).toBe("failed");
@@ -106,7 +106,7 @@ describe("/api/health", () => {
         ADO_TEMPLATE_DIR: "/tmp/surfboard-does-not-exist-xyz/templates",
       },
     });
-    const app = buildApp({ config, dbHandle: null });
+    const app = buildApp({ config, dbHandle: null, adoClient: null });
     const report = await getHealth(app);
 
     expect(report.workspace.status).toBe("degraded");

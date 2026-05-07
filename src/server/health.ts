@@ -1,8 +1,11 @@
-// Phase 1 health report. Phases 2, 3, and 5 expand this with watcher, ADO, and webhook fields.
+// Health report aggregator. Components contribute a HealthStatus and
+// (optionally) a free-text error. The route handler awaits this.
 
 import { existsSync, statSync } from "node:fs";
 import type { AppConfig } from "./config.ts";
 import { publicConfig } from "./config.ts";
+import type { AdoClient } from "./adoClient.ts";
+import { AdoError } from "./adoClient.ts";
 import type { DbHandle } from "./db.ts";
 import type { FileWatcher } from "./fileWatcher.ts";
 import { getCurrentVersion } from "./migrations.ts";
@@ -13,6 +16,8 @@ export type BuildHealthOptions = {
   config: AppConfig;
   dbHandle: DbHandle | null;
   watcher?: FileWatcher | null;
+  /** When provided, probeAdoHealth is invoked and the result is included. */
+  adoClient?: AdoClient | null;
 };
 
 function dirStatus(path: string | undefined): { status: HealthStatus; path?: string; error?: string } {
@@ -61,7 +66,7 @@ function appStatus(parts: ReadonlyArray<HealthStatus>): HealthStatus {
   return "ok";
 }
 
-export function buildHealthReport(options: BuildHealthOptions): HealthReport {
+export async function buildHealthReport(options: BuildHealthOptions): Promise<HealthReport> {
   const config = configStatus(options.config);
   const sqlite = sqliteStatus(options.dbHandle);
   const workspace = dirStatus(options.config.workspaceDir);
@@ -72,9 +77,21 @@ export function buildHealthReport(options: BuildHealthOptions): HealthReport {
         error: options.watcher.status.error,
       }
     : undefined;
+
+  let ado: HealthReport["ado"];
+  if (options.config.ado === null) {
+    ado = {
+      auth: "disabled",
+      project: "disabled",
+      lastError: "ADO config missing — pull and push routes are unavailable",
+    };
+  } else if (options.adoClient) {
+    ado = await probeAdoHealth(options.adoClient);
+  }
+
   const overall = appStatus(
-    [config.status, sqlite.status, workspace.status, templates.status, watcher?.status].filter(
-      (s): s is HealthStatus => s !== undefined,
+    [config.status, sqlite.status, workspace.status, templates.status, watcher?.status, ado?.auth].filter(
+      (s): s is HealthStatus => s !== undefined && s !== "disabled",
     ),
   );
 
@@ -85,5 +102,39 @@ export function buildHealthReport(options: BuildHealthOptions): HealthReport {
     workspace,
     templates,
     ...(watcher ? { watcher } : {}),
+    ...(ado ? { ado } : {}),
   };
+}
+
+/**
+ * Probes ADO with a single read-only project GET. Distinguishes:
+ * - ok: project responds 200
+ * - auth failed: 401 or 403
+ * - project failed: 404 (auth presumably ok)
+ * - degraded: any other error
+ */
+export async function probeAdoHealth(client: AdoClient): Promise<NonNullable<HealthReport["ado"]>> {
+  try {
+    await client.getJsonOrg(`projects/${encodeURIComponent(client.project)}`);
+    return { auth: "ok", project: "ok" };
+  } catch (err) {
+    if (err instanceof AdoError) {
+      if (err.status === 401 || err.status === 403) {
+        return { auth: "failed", project: "failed", lastError: `${err.status} ${err.statusText}` };
+      }
+      if (err.status === 404) {
+        return { auth: "ok", project: "failed", lastError: `${err.status} ${err.statusText}` };
+      }
+      return {
+        auth: "degraded",
+        project: "degraded",
+        lastError: `${err.status} ${err.statusText}`,
+      };
+    }
+    return {
+      auth: "degraded",
+      project: "degraded",
+      lastError: err instanceof Error ? err.message : String(err),
+    };
+  }
 }

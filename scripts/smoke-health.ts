@@ -22,7 +22,9 @@ try {
     },
   });
   const dbHandle = openDb({ workspaceDir: ws });
-  const app = buildApp({ config, dbHandle, staticRoot: null });
+  // For the smoke we don't probe ADO; pass adoClient: null so the health
+  // route doesn't try to hit the live service.
+  const app = buildApp({ config, dbHandle, staticRoot: null, adoClient: null });
 
   const res = await app.inject({ method: "GET", url: "/api/health" });
   if (res.statusCode !== 200) {

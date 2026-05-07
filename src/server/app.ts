@@ -3,6 +3,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { AdoClient } from "./adoClient.ts";
 import type { AppConfig } from "./config.ts";
 import type { DbHandle } from "./db.ts";
 import { FileWatcher } from "./fileWatcher.ts";
@@ -18,12 +19,15 @@ export type AppDeps = {
   staticRoot?: string | null;
   /** When true, start a chokidar watcher that re-scans on file change. Default false (tests opt in). */
   startWatcher?: boolean;
+  /** Inject a custom AdoClient (tests). When omitted, one is constructed from config.ado if present. */
+  adoClient?: AdoClient | null;
 };
 
 export type AppHandle = {
   fastify: FastifyInstance;
   workspace: WorkspaceState | null;
   watcher: FileWatcher | null;
+  adoClient: AdoClient | null;
 };
 
 export function buildApp(deps: AppDeps): FastifyInstance {
@@ -59,8 +63,29 @@ export function buildAppHandle(deps: AppDeps): AppHandle {
     }
   }
 
+  // If the caller explicitly passes adoClient (including null), honor it.
+  // Otherwise auto-construct from config when ADO is configured.
+  let adoClient: AdoClient | null;
+  if ("adoClient" in deps) {
+    adoClient = deps.adoClient ?? null;
+  } else if (deps.config.ado) {
+    adoClient = new AdoClient({
+      organization: deps.config.ado.org,
+      project: deps.config.ado.project,
+      apiVersion: deps.config.ado.apiVersion,
+      pat: deps.config.ado.pat,
+    });
+  } else {
+    adoClient = null;
+  }
+
   fastify.get("/api/health", async () => {
-    return buildHealthReport({ config: deps.config, dbHandle: deps.dbHandle, watcher });
+    return buildHealthReport({
+      config: deps.config,
+      dbHandle: deps.dbHandle,
+      watcher,
+      adoClient,
+    });
   });
 
   if (deps.staticRoot !== null) {
@@ -70,5 +95,5 @@ export function buildAppHandle(deps: AppDeps): AppHandle {
     }
   }
 
-  return { fastify, workspace, watcher };
+  return { fastify, workspace, watcher, adoClient };
 }
