@@ -4,6 +4,7 @@ import { existsSync, statSync } from "node:fs";
 import type { AppConfig } from "./config.ts";
 import { publicConfig } from "./config.ts";
 import type { DbHandle } from "./db.ts";
+import type { FileWatcher } from "./fileWatcher.ts";
 import { getCurrentVersion } from "./migrations.ts";
 import { APP_VERSION } from "../shared/constants.ts";
 import type { HealthReport, HealthStatus } from "../shared/types.ts";
@@ -11,6 +12,7 @@ import type { HealthReport, HealthStatus } from "../shared/types.ts";
 export type BuildHealthOptions = {
   config: AppConfig;
   dbHandle: DbHandle | null;
+  watcher?: FileWatcher | null;
 };
 
 function dirStatus(path: string | undefined): { status: HealthStatus; path?: string; error?: string } {
@@ -64,7 +66,17 @@ export function buildHealthReport(options: BuildHealthOptions): HealthReport {
   const sqlite = sqliteStatus(options.dbHandle);
   const workspace = dirStatus(options.config.workspaceDir);
   const templates = dirStatus(options.config.templateDir);
-  const overall = appStatus([config.status, sqlite.status, workspace.status, templates.status]);
+  const watcher = options.watcher
+    ? {
+        status: (options.watcher.status.active ? "ok" : "failed") as HealthStatus,
+        error: options.watcher.status.error,
+      }
+    : undefined;
+  const overall = appStatus(
+    [config.status, sqlite.status, workspace.status, templates.status, watcher?.status].filter(
+      (s): s is HealthStatus => s !== undefined,
+    ),
+  );
 
   return {
     app: { version: APP_VERSION, status: overall },
@@ -72,5 +84,6 @@ export function buildHealthReport(options: BuildHealthOptions): HealthReport {
     sqlite,
     workspace,
     templates,
+    ...(watcher ? { watcher } : {}),
   };
 }
