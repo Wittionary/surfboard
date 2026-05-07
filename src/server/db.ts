@@ -182,3 +182,71 @@ export function getCachedChildrenByParentAdoId(db: Database, parentAdoId: number
     .all(parentAdoId) as CacheRow[];
   return rows.map(rowToCached);
 }
+
+/**
+ * Updates the accepted baseline (last_known_*) and pull timestamp on a cache
+ * row. The row must already exist (call upsertWorkItemCache first). Used by
+ * pull when YAML is created or overwritten.
+ */
+export type BaselineUpdate = {
+  localId: string;
+  adoId: number;
+  rev: number;
+  fieldHash: string;
+  relationHash: string;
+  syncStatus: SyncStatus;
+};
+
+export function updateAcceptedBaseline(db: Database, input: BaselineUpdate): void {
+  const now = new Date().toISOString();
+  db.run(
+    `UPDATE work_item_cache SET
+      ado_id = ?,
+      last_known_rev = ?,
+      last_known_field_hash = ?,
+      last_known_relation_hash = ?,
+      last_remote_rev = ?,
+      remote_changed_at = NULL,
+      remote_checked_at = ?,
+      sync_status = ?,
+      last_pulled_at = ?,
+      updated_at = ?
+     WHERE local_id = ?`,
+    [
+      input.adoId,
+      input.rev,
+      input.fieldHash,
+      input.relationHash,
+      input.rev,
+      now,
+      input.syncStatus,
+      now,
+      now,
+      input.localId,
+    ],
+  );
+}
+
+/**
+ * Updates only the remote-observed columns when pull overwrite is declined.
+ * Leaves last_known_* untouched per spec §4.2.
+ */
+export type RemoteObservedUpdate = {
+  localId: string;
+  remoteRev: number;
+  syncStatus: SyncStatus;
+};
+
+export function updateRemoteObserved(db: Database, input: RemoteObservedUpdate): void {
+  const now = new Date().toISOString();
+  db.run(
+    `UPDATE work_item_cache SET
+      last_remote_rev = ?,
+      remote_changed_at = ?,
+      remote_checked_at = ?,
+      sync_status = ?,
+      updated_at = ?
+     WHERE local_id = ?`,
+    [input.remoteRev, now, now, input.syncStatus, now, input.localId],
+  );
+}
