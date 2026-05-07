@@ -1,0 +1,27 @@
+apiVersion: surfboard.ado/v1
+kind: WorkItemTemplate
+metadata:
+  name: enabler
+spec:
+  workItemType: Enabler
+  parentTypes:
+    - Feature
+  requiredFields:
+    - System.Title
+  optionalFields:
+    - System.Description
+    - System.AssignedTo
+    - System.AreaPath
+    - System.IterationPath
+    - System.State
+    - Microsoft.VSTS.Common.Priority
+    - Microsoft.VSTS.Scheduling.Effort
+    - Microsoft.VSTS.Common.BusinessValue
+    - Microsoft.VSTS.Common.AcceptanceCriteria
+  tags:
+    allowed: true
+  fieldRules:
+    Microsoft.VSTS.Common.Priority:
+      type: integer
+      allowedValues: [1, 2, 3, 4]
+  unknownFields: fail

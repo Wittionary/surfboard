@@ -1,0 +1,28 @@
+apiVersion: surfboard.ado/v1
+kind: WorkItemTemplate
+metadata:
+  name: task
+spec:
+  workItemType: Task
+  parentTypes:
+    - PBI
+    - Enabler
+  requiredFields:
+    - System.Title
+  optionalFields:
+    - System.Description
+    - System.AssignedTo
+    - System.AreaPath
+    - System.IterationPath
+    - System.State
+    - Microsoft.VSTS.Scheduling.RemainingWork
+    - Microsoft.VSTS.Common.Activity
+    - Microsoft.VSTS.Scheduling.OriginalEstimate
+    - Microsoft.VSTS.Scheduling.CompletedWork
+  tags:
+    allowed: true
+  fieldRules:
+    System.State:
+      type: string
+      allowedValues: ["To Do", "In Progress", "Done", "Removed"]
+  unknownFields: fail

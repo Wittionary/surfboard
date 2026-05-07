@@ -1,0 +1,28 @@
+apiVersion: surfboard.ado/v1
+kind: WorkItemTemplate
+metadata:
+  name: feature
+spec:
+  workItemType: Feature
+  parentTypes:
+    - Epic
+  requiredFields:
+    - System.Title
+  optionalFields:
+    - System.Description
+    - System.AssignedTo
+    - System.AreaPath
+    - System.IterationPath
+    - System.State
+    - Microsoft.VSTS.Common.Priority
+    - Microsoft.VSTS.Common.BusinessValue
+  tags:
+    allowed: true
+  fieldRules:
+    Microsoft.VSTS.Common.Priority:
+      type: integer
+      allowedValues: [1, 2, 3, 4]
+    System.State:
+      type: string
+      allowedValues: ["New", "In Progress", "Done", "Removed"]
+  unknownFields: fail
