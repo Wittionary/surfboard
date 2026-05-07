@@ -46,7 +46,7 @@ function fakeClient(): AdoClient {
     apiVersion: "7.1",
     pat: "fake",
     fetchImpl: ((): Promise<Response> =>
-      Promise.resolve(new Response("not used in prevalidation", { status: 500 }))) as typeof fetch,
+      Promise.resolve(new Response("not used in prevalidation", { status: 500 }))) as unknown as typeof fetch,
   });
 }
 
@@ -220,7 +220,7 @@ spec:
       fetchImpl: ((): Promise<Response> => {
         calls += 1;
         return Promise.resolve(new Response("nope", { status: 500 }));
-      }) as typeof fetch,
+      }) as unknown as typeof fetch,
     });
     const ws = setupWorkspaceWithDeps(`
 apiVersion: surfboard.ado/v1

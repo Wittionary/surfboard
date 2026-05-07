@@ -161,3 +161,28 @@ export function buildConfirmPopup(item: ItemOperationResult): ConfirmPopupModel 
     remoteRev: item.remoteRev !== undefined ? String(item.remoteRev) : "—",
   };
 }
+
+/**
+ * Maps spec §8.7 keyboard combinations to action names. Pure function so
+ * tests don't need a real KeyboardEvent — any object with key/altKey/shiftKey
+ * works as input.
+ */
+export type HotkeyEventLike = { key: string; altKey: boolean; shiftKey: boolean };
+
+export function matchHotkey(ev: HotkeyEventLike): string | null {
+  if (!ev.altKey || !ev.shiftKey) return null;
+  switch (ev.key.toUpperCase()) {
+    case "U":
+      return "push-all";
+    case "I":
+      return "pull-all";
+    case "J":
+      return "push-selected";
+    case "K":
+      return "pull-selected";
+    case "V":
+      return "refresh";
+    default:
+      return null;
+  }
+}

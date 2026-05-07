@@ -16,10 +16,14 @@ import {
   buildConfirmPopup,
   buildLocalViewModel,
   extractOverwriteRequests,
+  matchHotkey as matchHotkeyImpl,
   renderChildRows,
   renderFooter,
   renderParentHero,
 } from "./render.ts";
+
+/** Re-exported for back-compat with the existing test layout. */
+export const matchHotkey = matchHotkeyImpl;
 
 let currentParentLocalId: string | null = null;
 
@@ -235,15 +239,110 @@ async function pullSelectedRow(): Promise<void> {
   }
 }
 
+async function pushAll(): Promise<void> {
+  if (!currentParentLocalId) return;
+  setBusy(true);
+  try {
+    let result = await postJson<OperationResult>("/api/push/all", {
+      parent: { localId: currentParentLocalId },
+      includeParent: true,
+    });
+    if (!result) return;
+    const reparentNeeded = result.items
+      .filter((i) => i.confirmationRequired === "change_parent")
+      .map((i) => i.localId)
+      .filter((id): id is string => id !== undefined);
+    if (reparentNeeded.length > 0) {
+      // Use the same confirm dialog mechanism for parent-change confirmation.
+      const confirmed: string[] = [];
+      for (const localId of reparentNeeded) {
+        const item = result.items.find((i) => i.localId === localId);
+        if (!item) continue;
+        const ok = await dialog.show(item);
+        if (ok) confirmed.push(localId);
+      }
+      if (confirmed.length > 0) {
+        result = await postJson<OperationResult>("/api/push/all", {
+          parent: { localId: currentParentLocalId },
+          includeParent: true,
+          confirmedParentChanges: confirmed,
+        });
+      }
+    }
+    await refresh();
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function pushSelectedRow(): Promise<void> {
+  const selected = document.querySelector<HTMLElement>("tr[data-local-id].is-selected");
+  if (!selected) return;
+  const localId = selected.dataset.localId;
+  if (!localId) return;
+  setBusy(true);
+  try {
+    let result = await postJson<OperationResult>("/api/push/item", {
+      item: { localId },
+    });
+    if (!result) return;
+    if (result.items.some((i) => i.confirmationRequired === "change_parent")) {
+      const item = result.items.find((i) => i.localId === localId);
+      if (item) {
+        const ok = await dialog.show(item);
+        if (ok) {
+          result = await postJson<OperationResult>("/api/push/item", {
+            item: { localId },
+            confirmedParentChange: true,
+          });
+        }
+      }
+    }
+    await refresh();
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function validateAll(): Promise<void> {
+  await postJson("/api/validate", { scope: "workspace" });
+  await refresh();
+}
+
+async function validateSelected(): Promise<void> {
+  const selected = document.querySelector<HTMLElement>("tr[data-local-id].is-selected");
+  const localId = selected?.dataset.localId;
+  if (!localId) return;
+  await postJson("/api/validate", { scope: "item", item: { localId } });
+  await refresh();
+}
+
+export type HotkeyHandler = (action: string) => void;
+
+function dispatchAction(action: string): void {
+  if (action === "refresh") void refresh();
+  else if (action === "pull-all") void pullAll();
+  else if (action === "pull-selected") void pullSelectedRow();
+  else if (action === "push-all") void pushAll();
+  else if (action === "push-selected") void pushSelectedRow();
+  else if (action === "validate-all") void validateAll();
+  else if (action === "validate-selected") void validateSelected();
+  else if (action === "row-validate") void validateSelected();
+}
+
 function wireActions(): void {
   document.addEventListener("click", (ev) => {
     const target = ev.target as HTMLElement | null;
     const action = target?.closest<HTMLElement>("[data-action]")?.dataset.action;
     if (!action) return;
-    if (action === "refresh") void refresh();
-    if (action === "pull-all") void pullAll();
-    if (action === "pull-selected") void pullSelectedRow();
-    if (action === "row-validate") void refresh();
+    dispatchAction(action);
+  });
+  document.addEventListener("keydown", (ev) => {
+    const action = matchHotkey(ev);
+    if (action) {
+      ev.preventDefault();
+      dispatchAction(action);
+    }
   });
   // Row selection toggle.
   document.addEventListener("click", (ev) => {

@@ -209,7 +209,7 @@ describe("POST /api/push/item", () => {
       payload: JSON.stringify({ item: { localId: "feature-a" } }),
     });
     expect(res.statusCode).toBe(200);
-    const ops = JSON.parse(body) as Array<{ op: string; path: string }>;
+    const ops = JSON.parse(body) as Array<{ op: string; path: string; value?: unknown }>;
     expect(ops[0]).toEqual({ op: "test", path: "/rev", value: 5 });
     await app.close();
   });
