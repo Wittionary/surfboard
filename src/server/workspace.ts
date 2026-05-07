@@ -9,8 +9,8 @@ import { parseYamlFile, scanWorkspaceFiles } from "./yamlStore.ts";
 import type { ParsedDocument } from "./yamlStore.ts";
 import { loadTemplates, type TemplateLoadResult } from "./templateStore.ts";
 import { validateDocument, validateWorkspace } from "./validator.ts";
-import { upsertWorkItemCache, getAllCached, deleteCacheEntry } from "./db.ts";
-import { fileSha256 } from "./hash.ts";
+import { upsertWorkItemCache, getAllCached, getCached, deleteCacheEntry } from "./db.ts";
+import { fieldHash, fileSha256, relationHash } from "./hash.ts";
 import type { ValidationIssue, WorkItemType, SyncStatus, LocalWorkItem } from "../shared/types.ts";
 
 export type WorkspaceDocument = {
@@ -141,12 +141,24 @@ function safeFileHash(path: string): string | undefined {
   }
 }
 
-function deriveSyncStatus(wd: WorkspaceDocument, _db: Database): SyncStatus {
+function deriveSyncStatus(wd: WorkspaceDocument, db: Database): SyncStatus {
   // Phase 2 derives only local statuses. Pull/push add remote_changed,
   // conflict_blocked, etc. in later phases.
   if (wd.issues.some((i) => i.severity === "error")) return "validation_failed";
-  // Without a cached baseline we can't tell synced from local_changed; that
-  // logic moves into Task 2.6 once hash baselines exist. For Phase 2.4 we
-  // mark as local_only.
-  return "local_only";
+  const item = wd.item;
+  if (!item) return "validation_failed";
+
+  // No cached baseline → never been pulled or pushed → local-only.
+  const cached = getCached(db, item.metadata.localId);
+  if (!cached || cached.lastKnownFieldHash === undefined) return "local_only";
+
+  const currentField = fieldHash(item);
+  const currentRelation = relationHash(item);
+  if (
+    currentField === cached.lastKnownFieldHash &&
+    currentRelation === cached.lastKnownRelationHash
+  ) {
+    return "synced";
+  }
+  return "local_changed";
 }
