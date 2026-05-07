@@ -60,7 +60,19 @@
       "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ '~/.bun/bin/bun' test tests/acceptance/safety.test.ts)",
       "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ '~/.bun/bin/bun' run verify:mvp)",
       "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ ADO_ORG=goalliant ADO_PROJECT=Alliant '~/.bun/bin/bun' run verify:mvp)",
-      "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ ADO_ORG=goalliant ADO_PROJECT=Alliant '~/.bun/bin/bun' run verify:phase5)"
+      "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ ADO_ORG=goalliant ADO_PROJECT=Alliant '~/.bun/bin/bun' run verify:phase5)",
+      "Bash(mkdir -p /tmp/sf-style-test)",
+      "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ ADO_WORKSPACE_DIR=/tmp/sf-style-test ADO_TEMPLATE_DIR=/tmp/sf-style-test timeout 3 '~/.bun/bin/bun' run src/server/index.ts)",
+      "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ ADO_WORKSPACE_DIR=/tmp/sf-style-test ADO_TEMPLATE_DIR=/tmp/sf-style-test timeout 4 '~/.bun/bin/bun' run src/server/index.ts)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ ADO_WORKSPACE_DIR=/tmp/sf-style-test ADO_TEMPLATE_DIR=/tmp/sf-style-test '~/.bun/bin/bun' run src/server/index.ts)",
+      "Bash(echo \"PID=$!\")",
+      "Bash(disown)",
+      "Bash(netstat -tnlp)",
+      "Bash(curl -s http://127.0.0.1:3000/)",
+      "Bash(curl -s http://127.0.0.1:3000/assets/styles.css)",
+      "Bash(curl -s http://127.0.0.1:3000/api/health)",
+      "Bash(pkill -f 'bun run src/server/index.ts')"
     ]
   }
 }
