@@ -1,0 +1,39 @@
+apiVersion: surfboard.ado/v1
+kind: Feature
+metadata:
+  localId: feature-multi-doc-fixture
+  adoId: 100100
+spec:
+  parent:
+    localId: epic-multi-doc-fixture
+    adoId: 100000
+  fields:
+    System.Title: Multi-doc fixture feature
+    System.Description: Used by tests/server/yamlStore.test.ts
+---
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-multi-doc-first
+  adoId: 100101
+spec:
+  parent:
+    localId: feature-multi-doc-fixture
+    adoId: 100100
+  tags:
+    - reliability
+  fields:
+    System.Title: First PBI under multi-doc feature
+    Microsoft.VSTS.Common.Priority: 2
+---
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-multi-doc-second
+spec:
+  parent:
+    localId: feature-multi-doc-fixture
+    adoId: 100100
+  fields:
+    System.Title: Second PBI not yet pushed
+    Microsoft.VSTS.Common.Priority: 3
