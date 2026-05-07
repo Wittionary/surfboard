@@ -141,3 +141,7 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Surfboard build output and local workspace database
+dist/
+workspace/.surfboard/
