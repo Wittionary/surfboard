@@ -54,7 +54,13 @@
       "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ '~/.bun/bin/bun' test tests/server/remoteChangeStatus.test.ts)",
       "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ '~/.bun/bin/bun' test tests/server/webhook.test.ts)",
       "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ '~/.bun/bin/bun' test tests/frontend/healthPanel.test.ts)",
-      "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ '~/.bun/bin/bun' test tests/server/auditRoutes.test.ts)"
+      "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ '~/.bun/bin/bun' test tests/server/auditRoutes.test.ts)",
+      "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ '~/.bun/bin/bun' test tests/acceptance/mvp.test.ts)",
+      "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ '~/.bun/bin/bun' run scripts/smoke-mvp.ts)",
+      "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ '~/.bun/bin/bun' test tests/acceptance/safety.test.ts)",
+      "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ '~/.bun/bin/bun' run verify:mvp)",
+      "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ ADO_ORG=goalliant ADO_PROJECT=Alliant '~/.bun/bin/bun' run verify:mvp)",
+      "Bash(PATH=__TRACKED_VAR__/.bun/bin:__TRACKED_VAR__ ADO_ORG=goalliant ADO_PROJECT=Alliant '~/.bun/bin/bun' run verify:phase5)"
     ]
   }
 }
