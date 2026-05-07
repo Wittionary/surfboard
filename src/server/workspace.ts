@@ -8,7 +8,7 @@ import type { Database } from "bun:sqlite";
 import { parseYamlFile, scanWorkspaceFiles } from "./yamlStore.ts";
 import type { ParsedDocument } from "./yamlStore.ts";
 import { loadTemplates, type TemplateLoadResult } from "./templateStore.ts";
-import { validateDocument } from "./validator.ts";
+import { validateDocument, validateWorkspace } from "./validator.ts";
 import { upsertWorkItemCache, getAllCached, deleteCacheEntry } from "./db.ts";
 import { fileSha256 } from "./hash.ts";
 import type { ValidationIssue, WorkItemType, SyncStatus, LocalWorkItem } from "../shared/types.ts";
@@ -56,6 +56,23 @@ export function scanWorkspace(options: WorkspaceScanOptions): WorkspaceScanResul
       issues.push(...docIssues);
     }
   }
+
+  // Cross-document checks: parent matrix, missing parent, duplicate localId,
+  // duplicate sibling titles. Only items with valid envelopes participate.
+  const items = documents
+    .map((d) => d.item)
+    .filter((i): i is LocalWorkItem => i !== undefined);
+  const workspaceIssues = validateWorkspace(items).issues;
+
+  // Attribute workspace-level issues back to their documents so callers can
+  // group results by file/document.
+  for (const issue of workspaceIssues) {
+    const target = issue.localId
+      ? documents.find((d) => d.item?.metadata.localId === issue.localId)
+      : undefined;
+    if (target) target.issues.push(issue);
+  }
+  issues.push(...workspaceIssues);
 
   return {
     workspaceDir: options.workspaceDir,

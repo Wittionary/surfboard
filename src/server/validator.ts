@@ -1,12 +1,13 @@
-// Schema validation per spec §6 and §7. Validates a single parsed YAML document
-// against the work item envelope and the kind's template. Hierarchy and
-// duplicate validation live in their own pass (Task 2.5).
+// Schema, hierarchy, and duplicate validation per spec §6 and §7.
+// - validateDocument validates a single parsed YAML document.
+// - validateWorkspace adds workspace-wide checks: parent matrix, missing
+//   parents, duplicate localId, and duplicate sibling titles.
 
 import type { ParsedDocument } from "./yamlStore.ts";
 import type { TemplateLoadResult, WorkItemTemplate, TemplateFieldRule, TemplateFieldType } from "./templateStore.ts";
 import { getTemplate } from "./templateStore.ts";
-import { API_VERSION, WORK_ITEM_TYPES } from "../shared/constants.ts";
-import type { ValidationIssue, WorkItemType } from "../shared/types.ts";
+import { API_VERSION, PARENT_MATRIX, WORK_ITEM_KINDS_REQUIRING_PARENT, WORK_ITEM_TYPES, SYSTEM_TITLE_FIELD } from "../shared/constants.ts";
+import type { LocalWorkItem, ValidationIssue, WorkItemType } from "../shared/types.ts";
 
 export type ValidationContext = {
   templates: TemplateLoadResult;
@@ -373,4 +374,171 @@ function matchesType(value: unknown, type: TemplateFieldType): boolean {
     case "boolean":
       return typeof value === "boolean";
   }
+}
+
+// ---------------------------------------------------------------------------
+// Workspace-level validation: hierarchy and duplicates
+// ---------------------------------------------------------------------------
+
+export type WorkspaceValidationResult = {
+  issues: ValidationIssue[];
+};
+
+/**
+ * Cross-document validation per spec §5.4 and §7:
+ * - duplicate metadata.localId across the workspace
+ * - duplicate normalized title among siblings (same parent + same child kind)
+ * - parent matrix enforcement
+ * - missing parent for kinds that require one
+ *
+ * Items that already failed envelope/template validation should be filtered
+ * out by the caller; this pass assumes its input has minimally usable
+ * envelopes.
+ */
+export function validateWorkspace(items: readonly LocalWorkItem[]): WorkspaceValidationResult {
+  const issues: ValidationIssue[] = [];
+
+  // 1. Duplicate localId across the workspace.
+  const byLocalId = new Map<string, LocalWorkItem[]>();
+  for (const item of items) {
+    const list = byLocalId.get(item.metadata.localId) ?? [];
+    list.push(item);
+    byLocalId.set(item.metadata.localId, list);
+  }
+  for (const [localId, list] of byLocalId) {
+    if (list.length < 2) continue;
+    for (const item of list) {
+      const others = list.filter((o) => o !== item);
+      issues.push({
+        severity: "error",
+        code: "duplicate_local_id",
+        message: `Duplicate metadata.localId "${localId}" across workspace; also at ${others
+          .map((o) => `${o.yamlPath}#${o.yamlDocumentIndex}`)
+          .join(", ")}`,
+        yamlPath: item.yamlPath,
+        yamlDocumentIndex: item.yamlDocumentIndex,
+        localId,
+      });
+    }
+  }
+
+  // 2. Parent matrix and missing parent.
+  for (const item of items) {
+    const allowedParents = PARENT_MATRIX[item.kind];
+    const requiresParent = WORK_ITEM_KINDS_REQUIRING_PARENT.includes(item.kind);
+    const parent = item.spec.parent;
+
+    if (requiresParent && !parent) {
+      issues.push({
+        severity: "error",
+        code: "missing_parent",
+        message: `${item.kind} ${item.metadata.localId} requires a parent (allowed: ${allowedParents.join(", ")})`,
+        yamlPath: item.yamlPath,
+        yamlDocumentIndex: item.yamlDocumentIndex,
+        localId: item.metadata.localId,
+      });
+      continue;
+    }
+    if (item.kind === "Epic" && parent) {
+      issues.push({
+        severity: "error",
+        code: "invalid_parent_type",
+        message: `Epic ${item.metadata.localId} must not declare a parent`,
+        yamlPath: item.yamlPath,
+        yamlDocumentIndex: item.yamlDocumentIndex,
+        localId: item.metadata.localId,
+      });
+      continue;
+    }
+    if (!parent) continue; // Epic with no parent: legal.
+
+    if (!parent.localId && !parent.adoId) {
+      issues.push({
+        severity: "error",
+        code: "missing_parent",
+        message: `${item.kind} ${item.metadata.localId} declares spec.parent without localId or adoId`,
+        yamlPath: item.yamlPath,
+        yamlDocumentIndex: item.yamlDocumentIndex,
+        localId: item.metadata.localId,
+      });
+      continue;
+    }
+
+    // If we can resolve the parent within the workspace, verify the kind matches the matrix.
+    const localParent = parent.localId ? byLocalId.get(parent.localId)?.[0] : undefined;
+    if (localParent && !allowedParents.includes(localParent.kind)) {
+      issues.push({
+        severity: "error",
+        code: "invalid_parent_type",
+        message: `${item.kind} ${item.metadata.localId} has parent ${localParent.kind} ${localParent.metadata.localId}; allowed: ${allowedParents.join(", ")}`,
+        yamlPath: item.yamlPath,
+        yamlDocumentIndex: item.yamlDocumentIndex,
+        localId: item.metadata.localId,
+      });
+    }
+    if (parent.localId && !localParent && !parent.adoId) {
+      // Local-only reference that does not resolve and has no remote ID either.
+      issues.push({
+        severity: "error",
+        code: "missing_parent",
+        message: `${item.kind} ${item.metadata.localId} references parent localId "${parent.localId}" which is not in the workspace and has no spec.parent.adoId`,
+        yamlPath: item.yamlPath,
+        yamlDocumentIndex: item.yamlDocumentIndex,
+        localId: item.metadata.localId,
+      });
+    }
+  }
+
+  // 3. Duplicate sibling titles by (parent key, child kind), normalized.
+  type SiblingKey = string;
+  const siblingKey = (item: LocalWorkItem): SiblingKey | null => {
+    const parent = item.spec.parent;
+    const parentToken = parent
+      ? parent.adoId !== undefined
+        ? `ado:${parent.adoId}`
+        : parent.localId !== undefined
+          ? `local:${parent.localId}`
+          : null
+      : item.kind === "Epic"
+        ? "root"
+        : null;
+    if (!parentToken) return null;
+    return `${parentToken}|${item.kind}`;
+  };
+  const titleByGroup = new Map<SiblingKey, Map<string, LocalWorkItem[]>>();
+  for (const item of items) {
+    const key = siblingKey(item);
+    if (!key) continue;
+    const titleRaw = item.spec.fields[SYSTEM_TITLE_FIELD];
+    if (typeof titleRaw !== "string") continue;
+    const normalized = titleRaw.trim().toLowerCase().replace(/\s+/g, " ");
+    if (normalized.length === 0) continue;
+    const inner = titleByGroup.get(key) ?? new Map<string, LocalWorkItem[]>();
+    const list = inner.get(normalized) ?? [];
+    list.push(item);
+    inner.set(normalized, list);
+    titleByGroup.set(key, inner);
+  }
+  for (const [, inner] of titleByGroup) {
+    for (const [normalized, list] of inner) {
+      if (list.length < 2) continue;
+      for (const item of list) {
+        const others = list
+          .filter((o) => o !== item)
+          .map((o) => `${o.yamlPath}#${o.yamlDocumentIndex}`)
+          .join(", ");
+        issues.push({
+          severity: "error",
+          code: "duplicate_sibling_title",
+          message: `Duplicate sibling title (normalized "${normalized}") under same parent for kind ${item.kind}; also at ${others}`,
+          yamlPath: item.yamlPath,
+          yamlDocumentIndex: item.yamlDocumentIndex,
+          localId: item.metadata.localId,
+          field: `spec.fields.${SYSTEM_TITLE_FIELD}`,
+        });
+      }
+    }
+  }
+
+  return { issues };
 }
