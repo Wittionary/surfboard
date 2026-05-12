@@ -24,7 +24,9 @@ import type {
   ValidationIssue,
   WorkItemType,
 } from "../shared/types.ts";
-import { SYSTEM_STATE_FIELD, SYSTEM_TITLE_FIELD } from "../shared/constants.ts";
+import { PARENT_MATRIX, SYSTEM_STATE_FIELD, SYSTEM_TITLE_FIELD } from "../shared/constants.ts";
+import { appendDocument } from "./yamlStore.ts";
+import { upsertWorkItemCache } from "./db.ts";
 
 export type WorkspaceStatusResponse = {
   workspaceDir: string;
@@ -330,6 +332,90 @@ function summarizeOpResult(result: OperationResult): { success: number; failure:
     else if (item.status === "blocked" || item.status === "requires_confirmation") blocked += 1;
   }
   return { success, failure, blocked };
+}
+
+// Feature → PBI is the user-selected default; all other types have exactly one valid child.
+const SCAFFOLD_CHILD_TYPE: Partial<Record<WorkItemType, WorkItemType>> = {
+  Epic: "Feature",
+  Feature: "PBI",
+  PBI: "Task",
+  Enabler: "Task",
+};
+
+export type ScaffoldRouteDeps = {
+  workspace: WorkspaceState;
+  db: Database;
+};
+
+export type ScaffoldChildResponse = {
+  localId: string;
+  workItemType: WorkItemType;
+  yamlPath: string;
+  yamlDocumentIndex: number;
+};
+
+export function registerScaffoldRoutes(app: FastifyInstance, deps: ScaffoldRouteDeps): void {
+  app.post<{ Body: { parent: { localId?: string; adoId?: number } } }>(
+    "/api/scaffold/child",
+    async (req, reply): Promise<ScaffoldChildResponse | undefined> => {
+      const body = req.body;
+      if (!body?.parent || (body.parent.localId === undefined && body.parent.adoId === undefined)) {
+        return reply.code(400).send({ error: "parent selector required (localId or adoId)" });
+      }
+
+      const snapshot = deps.workspace.current();
+      const parentDoc = snapshot.scan.documents.find((d) => {
+        const item = d.item;
+        if (!item) return false;
+        if (body.parent.localId !== undefined && item.metadata.localId === body.parent.localId) return true;
+        if (body.parent.adoId !== undefined && item.metadata.adoId === body.parent.adoId) return true;
+        return false;
+      });
+
+      if (!parentDoc?.item) {
+        return reply.code(404).send({ error: "parent not found in workspace" });
+      }
+
+      const parentItem = parentDoc.item;
+      const childType = SCAFFOLD_CHILD_TYPE[parentItem.kind];
+      if (!childType) {
+        return reply.code(400).send({ error: `${parentItem.kind} items cannot have child work items` });
+      }
+
+      const localId = `${childType.toLowerCase()}-${crypto.randomUUID().slice(0, 8)}`;
+      const stub: LocalWorkItem = {
+        apiVersion: "surfboard.ado/v1",
+        kind: childType,
+        metadata: { localId },
+        spec: {
+          parent: {
+            localId: parentItem.metadata.localId,
+            ...(parentItem.metadata.adoId !== undefined ? { adoId: parentItem.metadata.adoId } : {}),
+          },
+          fields: { [SYSTEM_TITLE_FIELD]: `New ${childType}` },
+        },
+        yamlPath: parentItem.yamlPath,
+        yamlDocumentIndex: 0,
+      };
+
+      const docIndex = appendDocument(parentItem.yamlPath, stub);
+      stub.yamlDocumentIndex = docIndex;
+
+      upsertWorkItemCache(deps.db, {
+        localId,
+        workItemType: childType,
+        yamlPath: parentItem.yamlPath,
+        yamlDocumentIndex: docIndex,
+        parentLocalId: parentItem.metadata.localId,
+        parentAdoId: parentItem.metadata.adoId,
+        syncStatus: "local_only",
+      });
+
+      deps.workspace.refresh();
+
+      return { localId, workItemType: childType, yamlPath: parentItem.yamlPath, yamlDocumentIndex: docIndex };
+    },
+  );
 }
 
 function summarizeStatus(snapshot: ReturnType<WorkspaceState["current"]>): WorkspaceStatusResponse {

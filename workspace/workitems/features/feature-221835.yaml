@@ -1,0 +1,37 @@
+apiVersion: surfboard.ado/v1
+kind: Feature
+metadata:
+  localId: feature-221835
+  adoId: 221835
+spec:
+  fields:
+    System.AreaPath: Alliant\Shared Services\Site Reliability Engineering
+    System.IterationPath: Alliant\SRE
+    System.State: New
+    System.Reason: New feature
+    System.Title: witt test feature
+    Microsoft.VSTS.Common.Priority: 4
+    Microsoft.VSTS.Common.BacklogPriority: 1652650240
+    Microsoft.VSTS.Common.StateChangeDate: 2026-05-07T05:56:06.213Z
+    Microsoft.VSTS.Common.ValueArea: Business
+    WEF_754C0B46226E498E9FB3B66CF0B527A9_Kanban.Column: New
+    WEF_754C0B46226E498E9FB3B66CF0B527A9_Kanban.Column.Done: false
+    WEF_6FC02DE26073442396CD4E65C003C170_Kanban.Column: New
+    WEF_6FC02DE26073442396CD4E65C003C170_Kanban.Column.Done: false
+    Custom.WSJF: 0
+    System.Description: <div>Witt will delete by September 2026. </div>
+---
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-6d089ea9
+spec:
+  parent:
+    localId: feature-221835
+    adoId: 221835
+  fields:
+    System.Title: New PBI
+    System.Description: |
+      <div>
+        This is a new PBI under the witt test feature.
+      </div>

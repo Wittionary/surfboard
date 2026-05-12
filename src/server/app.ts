@@ -12,6 +12,7 @@ import {
   registerAuditRoutes,
   registerLocalRoutes,
   registerPullRoutes,
+  registerScaffoldRoutes,
   registerWebhookRoutes,
 } from "./routes.ts";
 import { registerStatic } from "./static.ts";
@@ -82,6 +83,10 @@ export function buildAppHandle(deps: AppDeps): AppHandle {
     });
   } else {
     adoClient = null;
+  }
+
+  if (workspace && deps.dbHandle) {
+    registerScaffoldRoutes(fastify, { workspace, db: deps.dbHandle.db });
   }
 
   if (workspace && deps.dbHandle && adoClient) {

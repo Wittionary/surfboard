@@ -226,9 +226,10 @@ export function buildConfirmPopup(item: ItemOperationResult): ConfirmPopupModel 
  * tests don't need a real KeyboardEvent — any object with key/altKey/shiftKey
  * works as input.
  */
-export type HotkeyEventLike = { key: string; altKey: boolean; shiftKey: boolean };
+export type HotkeyEventLike = { key: string; altKey: boolean; shiftKey: boolean; ctrlKey?: boolean; metaKey?: boolean };
 
 export function matchHotkey(ev: HotkeyEventLike): string | null {
+  if (ev.key === "n" && !ev.altKey && !ev.shiftKey && !ev.ctrlKey && !ev.metaKey) return "new-child";
   if (!ev.altKey || !ev.shiftKey) return null;
   switch (ev.key.toUpperCase()) {
     case "U":

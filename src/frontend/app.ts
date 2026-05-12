@@ -4,6 +4,7 @@
 
 import type {
   ParentViewResponse,
+  ScaffoldChildResponse,
   WorkspaceStatusResponse,
 } from "../server/routes.ts";
 import type {
@@ -363,6 +364,28 @@ async function pushSelectedRow(): Promise<void> {
   }
 }
 
+async function scaffoldChild(): Promise<void> {
+  if (!currentParentLocalId) return;
+  setBusy(true);
+  try {
+    const result = await postJson<ScaffoldChildResponse>("/api/scaffold/child", {
+      parent: { localId: currentParentLocalId },
+    });
+    if (!result) return;
+    await renderParent(currentParentLocalId);
+    const newRow = document.querySelector<HTMLElement>(`tr[data-local-id="${CSS.escape(result.localId)}"]`);
+    if (newRow) {
+      for (const other of document.querySelectorAll("tr.is-selected")) {
+        other.classList.remove("is-selected");
+      }
+      newRow.classList.add("is-selected");
+      newRow.scrollIntoView({ block: "nearest" });
+    }
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function validateAll(): Promise<void> {
   await postJson("/api/validate", { scope: "workspace" });
   await refresh();
@@ -387,6 +410,7 @@ function dispatchAction(action: string): void {
   else if (action === "validate-all") void validateAll();
   else if (action === "validate-selected") void validateSelected();
   else if (action === "row-validate") void validateSelected();
+  else if (action === "new-child") void scaffoldChild();
 }
 
 function wireActions(): void {
@@ -411,6 +435,8 @@ function wireActions(): void {
     dispatchAction(action);
   });
   document.addEventListener("keydown", (ev) => {
+    const tag = (ev.target as HTMLElement | null)?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
     const action = matchHotkey(ev);
     if (action) {
       ev.preventDefault();

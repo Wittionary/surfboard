@@ -988,7 +988,10 @@ function pullSingle(
   localIdByAdoId: Map<number, string>,
   confirmations: readonly PullOverwriteConfirmation[],
 ): ItemOperationResult {
-  const cached = getCachedByAdoId(deps.db, remote.id);
+  const rawCached = getCachedByAdoId(deps.db, remote.id);
+  // If the cache entry exists but the YAML file was deleted, treat it as absent
+  // so the create-missing path re-creates it rather than skipping.
+  const cached = rawCached && existsSync(rawCached.yamlPath) ? rawCached : null;
 
   if (!cached) {
     // Create-missing path.
