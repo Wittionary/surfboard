@@ -72,7 +72,8 @@
       "Bash(curl -s http://127.0.0.1:3000/)",
       "Bash(curl -s http://127.0.0.1:3000/assets/styles.css)",
       "Bash(curl -s http://127.0.0.1:3000/api/health)",
-      "Bash(pkill -f 'bun run src/server/index.ts')"
+      "Bash(pkill -f 'bun run src/server/index.ts')",
+      "Bash(xargs ls *)"
     ]
   }
 }

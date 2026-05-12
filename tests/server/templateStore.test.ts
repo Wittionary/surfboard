@@ -51,7 +51,7 @@ describe("loadTemplates", () => {
     expect(pbi?.requiredFields).toContain("System.Title");
     expect(pbi?.fieldRules["Microsoft.VSTS.Common.Priority"]?.allowedValues).toEqual([1, 2, 3, 4]);
     expect(pbi?.tagsAllowed).toBe(true);
-    expect(pbi?.unknownFields).toBe("fail");
+    expect(pbi?.unknownFields).toBe("warn");
   });
 
   test("reports template_missing when a kind has no template", () => {
