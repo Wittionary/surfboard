@@ -26,6 +26,7 @@ import {
 export const matchHotkey = matchHotkeyImpl;
 
 let currentParentLocalId: string | null = null;
+let currentWorkspaceDir: string | null = null;
 
 async function loadJson<T>(url: string, init?: RequestInit): Promise<T | null> {
   try {
@@ -92,6 +93,7 @@ async function refresh(): Promise<void> {
     postJson<WorkspaceStatusResponse>("/api/workspace/refresh", {}),
     loadJson<HealthReport>("/api/health"),
   ]);
+  if (status?.workspaceDir) currentWorkspaceDir = status.workspaceDir;
   applyFooter(renderFooter(status, health?.app.status ?? null));
   if (currentParentLocalId) await renderParent(currentParentLocalId);
 }
@@ -102,18 +104,75 @@ async function renderParent(localId: string): Promise<void> {
     `/api/view/parent/${encodeURIComponent(localId)}`,
   );
   const model = buildLocalViewModel(parent);
-  applyParentHero(renderParentHero(model.parent));
+  applyParentHero(renderParentHero(model.parent, currentWorkspaceDir));
   applyChildRows(renderChildRows(model.children));
   enableActions(parent !== null);
 }
 
 function enableActions(hasParent: boolean): void {
   for (const btn of document.querySelectorAll<HTMLButtonElement>("button[data-action]")) {
-    if (btn.dataset.action === "refresh") {
+    const action = btn.dataset.action;
+    if (action === "refresh") {
       btn.disabled = false;
+    } else if (action === "import") {
+      // Leave as-is; applyAdoAvailability owns this button's enabled state.
     } else {
       btn.disabled = !hasParent;
     }
+  }
+}
+
+function setImportError(msg: string): void {
+  const el = document.querySelector<HTMLElement>("[data-field='import-error']");
+  if (!el) return;
+  el.textContent = msg;
+  el.hidden = false;
+}
+
+function clearImportError(): void {
+  const el = document.querySelector<HTMLElement>("[data-field='import-error']");
+  if (!el) return;
+  el.textContent = "";
+  el.hidden = true;
+}
+
+async function pullByAdoId(adoId: number): Promise<void> {
+  setBusy(true);
+  try {
+    let result = await postJson<OperationResult>("/api/pull/all", {
+      parent: { adoId },
+    });
+    if (!result) {
+      setImportError(`Server returned no response for ADO ID ${adoId}.`);
+      return;
+    }
+    if (result.status === "failed" || result.status === "blocked") {
+      const msg = result.items[0]?.errorMessage ?? result.status;
+      setImportError(msg);
+      return;
+    }
+    if (result.items.some((i) => i.status === "requires_confirmation")) {
+      const confirmations = await collectConfirmations(result);
+      if (confirmations.length > 0) {
+        result = await postJson<OperationResult>("/api/pull/all", {
+          parent: { adoId },
+          confirmations,
+        });
+        if (!result) return;
+      }
+    }
+    const parentItem = result.items.find((i) => i.adoId === adoId);
+    if (parentItem?.localId) {
+      clearImportError();
+      const input = document.querySelector<HTMLInputElement>("[data-field='import-id']");
+      if (input) input.value = "";
+      globalThis.location.hash = `parent=${encodeURIComponent(parentItem.localId)}`;
+      await renderParent(parentItem.localId);
+    } else {
+      setImportError(`ADO ID ${adoId} not found or could not be imported.`);
+    }
+  } finally {
+    setBusy(false);
   }
 }
 
@@ -331,6 +390,20 @@ function dispatchAction(action: string): void {
 }
 
 function wireActions(): void {
+  const importForm = document.querySelector<HTMLFormElement>(".import-form");
+  importForm?.addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    const input = document.querySelector<HTMLInputElement>("[data-field='import-id']");
+    const raw = input?.value.trim() ?? "";
+    const adoId = parseInt(raw, 10);
+    if (!raw || isNaN(adoId) || adoId <= 0) {
+      setImportError("Enter a valid positive ADO ID.");
+      return;
+    }
+    clearImportError();
+    void pullByAdoId(adoId);
+  });
+
   document.addEventListener("click", (ev) => {
     const target = ev.target as HTMLElement | null;
     const action = target?.closest<HTMLElement>("[data-action]")?.dataset.action;
@@ -364,17 +437,37 @@ async function pickDefaultParentLocalId(
   return hashed ?? null;
 }
 
+function applyAdoAvailability(health: HealthReport | null): void {
+  const adoDisabled = health?.ado?.auth === "disabled" || !health?.ado;
+  const input = document.querySelector<HTMLInputElement>("[data-field='import-id']");
+  const btn = document.querySelector<HTMLButtonElement>("[data-action='import']");
+  if (!input || !btn) return;
+  input.disabled = adoDisabled;
+  btn.disabled = adoDisabled;
+  if (adoDisabled) {
+    const tip = "ADO credentials not configured (ADO_PAT missing)";
+    input.title = tip;
+    btn.title = tip;
+    input.placeholder = "ADO unavailable";
+  }
+}
+
 export async function bootstrap(): Promise<void> {
   const [status, health] = await Promise.all([
     loadJson<WorkspaceStatusResponse>("/api/workspace/status"),
     loadJson<HealthReport>("/api/health"),
   ]);
+  if (status?.workspaceDir) currentWorkspaceDir = status.workspaceDir;
   applyFooter(renderFooter(status, health?.app.status ?? null));
+  applyAdoAvailability(health);
   wireActions();
 
   const parentLocalId = await pickDefaultParentLocalId(status);
   if (parentLocalId) await renderParent(parentLocalId);
-  else applyParentHero(renderParentHero(null));
+  else {
+    applyParentHero(renderParentHero(null));
+    enableActions(false);
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {

@@ -20,6 +20,18 @@
         <div><dt>Path</dt><dd data-field="yamlPath">—</dd></div>
       </dl>
       <div class="parent-hero__actions" data-region="global-actions">
+        <form class="import-form" novalidate>
+          <input
+            type="text"
+            inputmode="numeric"
+            placeholder="ADO ID"
+            aria-label="Import work item by ADO ID"
+            data-field="import-id"
+            autocomplete="off"
+          />
+          <button type="submit" data-action="import">Import</button>
+          <span class="import-form__error" data-field="import-error" hidden></span>
+        </form>
         <button type="button" data-action="pull-all" disabled>Pull all</button>
         <button type="button" data-action="pull-selected" disabled>Pull selected</button>
         <button type="button" data-action="push-all" disabled>Push all</button>
