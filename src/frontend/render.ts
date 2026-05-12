@@ -33,7 +33,7 @@ export function validationLabel(issues: readonly ValidationIssue[]): { text: str
   return { text: "Valid", severity: "ok" };
 }
 
-export function renderParentHero(view: WorkItemView | null): {
+export function renderParentHero(view: WorkItemView | null, workspaceDir?: string | null): {
   type: string;
   title: string;
   adoId: string;
@@ -44,13 +44,17 @@ export function renderParentHero(view: WorkItemView | null): {
   if (!view) {
     return { type: "—", title: "No parent selected", adoId: "—", state: "—", syncStatus: "—", yamlPath: "—" };
   }
+  const displayPath =
+    workspaceDir && view.yamlPath.startsWith(workspaceDir)
+      ? view.yamlPath.slice(workspaceDir.length).replace(/^[/\\]/, "")
+      : view.yamlPath;
   return {
     type: view.workItemType,
     title: view.title ?? "(untitled)",
     adoId: view.adoId !== undefined ? String(view.adoId) : "—",
     state: view.state ?? "—",
     syncStatus: deriveDisplayStatus(view),
-    yamlPath: view.yamlPath,
+    yamlPath: displayPath,
   };
 }
 
