@@ -274,6 +274,44 @@ export function renderValidationDetails(issues: readonly ValidationIssue[]): str
     .join("\n");
 }
 
+export type LastOpSummary = {
+  text: string;
+  status: "ok" | "warn" | "fail";
+};
+
+export function renderLastOpSummary(op: {
+  type: "pull" | "push";
+  result: OperationResult;
+  at: Date;
+}): LastOpSummary {
+  const { type, result, at } = op;
+  const s = result.summary;
+  const label = type === "pull" ? "Pull" : "Push";
+  const time = formatTime(at.toISOString());
+
+  let detail: string;
+  if (result.status === "success" || result.status === "partial_failure") {
+    if (type === "pull") {
+      detail = s.pulled > 0 ? `${s.pulled} pulled` : "up to date";
+    } else {
+      const n = s.created + s.updated;
+      detail = n > 0 ? `${n} pushed` : "no changes";
+    }
+    const extra: string[] = [];
+    if (s.failed > 0) extra.push(`${s.failed} failed`);
+    if (s.blocked > 0) extra.push(`${s.blocked} blocked`);
+    if (extra.length > 0) detail += `, ${extra.join(", ")}`;
+  } else {
+    detail = result.status;
+  }
+
+  const status: "ok" | "warn" | "fail" =
+    result.status === "success" ? "ok" :
+    result.status === "partial_failure" || result.status === "blocked" ? "warn" : "fail";
+
+  return { text: `${label} · ${detail} · ${time}`, status };
+}
+
 export type HotkeyEventLike = { key: string; altKey: boolean; shiftKey: boolean; ctrlKey?: boolean; metaKey?: boolean };
 
 export function matchHotkey(ev: HotkeyEventLike): string | null {

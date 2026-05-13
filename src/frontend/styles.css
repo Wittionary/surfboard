@@ -244,6 +244,24 @@ kbd {
 }
 .status-footer [data-field="version"] { margin-left: auto; }
 
+.last-op {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.last-op::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+.last-op[data-status="ok"]::before   { background: var(--ok); }
+.last-op[data-status="warn"]::before { background: var(--warn); }
+.last-op[data-status="fail"]::before { background: var(--fail); }
+
 .status-pill {
   display: inline-block;
   padding: 2px 8px;

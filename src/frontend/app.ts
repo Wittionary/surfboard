@@ -21,6 +21,7 @@ import {
   matchHotkey as matchHotkeyImpl,
   renderChildRows,
   renderFooter,
+  renderLastOpSummary,
   renderParentHero,
   renderValidationDetails,
 } from "./render.ts";
@@ -31,6 +32,14 @@ export const matchHotkey = matchHotkeyImpl;
 let currentParentLocalId: string | null = null;
 let currentWorkspaceDir: string | null = null;
 let currentParentIssues: ValidationIssue[] = [];
+
+function setLastOp(type: "pull" | "push", result: OperationResult): void {
+  const el = document.querySelector<HTMLElement>("[data-field='lastOp']");
+  if (!el) return;
+  const { text, status } = renderLastOpSummary({ type, result, at: new Date() });
+  el.textContent = text;
+  el.dataset.status = status;
+}
 
 async function loadJson<T>(url: string, init?: RequestInit): Promise<T | null> {
   try {
@@ -302,6 +311,7 @@ async function pullAll(): Promise<void> {
         });
       }
     }
+    if (result) setLastOp("pull", result);
     await refresh();
   } finally {
     setBusy(false);
@@ -329,6 +339,7 @@ async function pullSelectedRow(): Promise<void> {
         });
       }
     }
+    if (result) setLastOp("pull", result);
     await refresh();
   } finally {
     setBusy(false);
@@ -365,6 +376,7 @@ async function pushAll(): Promise<void> {
         });
       }
     }
+    if (result) setLastOp("push", result);
     await refresh();
   } finally {
     setBusy(false);
@@ -394,6 +406,7 @@ async function pushSelectedRow(): Promise<void> {
         }
       }
     }
+    if (result) setLastOp("push", result);
     await refresh();
   } finally {
     setBusy(false);
