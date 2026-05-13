@@ -312,6 +312,109 @@ export function renderLastOpSummary(op: {
   return { text: `${label} · ${detail} · ${time}`, status };
 }
 
+const SHORT_HINTS: Record<string, string> = {
+  parent_fetch_failed:          "ADO fetch failed",
+  children_fetch_failed:        "ADO fetch failed",
+  fetch_failed:                 "ADO fetch failed",
+  remote_fetch_failed:          "ADO fetch failed",
+  remote_deleted:               "Deleted in ADO",
+  unknown_parent_local_id:      "Parent not found",
+  missing_cached_revision:      "Pull required",
+  remote_revision_changed:      "Revision drift — pull first",
+  yaml_changed_during_push:     "YAML changed — retry",
+  create_parent_not_supported:  "Parent creation out of scope",
+  missing_parent_ado_id:        "Push parent first",
+  duplicate_local_id:           "Duplicate local ID",
+  duplicate_sibling_title:      "Duplicate sibling title",
+  missing_required_field:       "Required field missing",
+  yaml_invalid:                 "Invalid YAML",
+};
+
+const LONG_HINTS: Record<string, string> = {
+  parent_fetch_failed:          "Check your ADO connection and PAT credentials, then retry.",
+  children_fetch_failed:        "Check your ADO connection and PAT credentials, then retry.",
+  fetch_failed:                 "Check your ADO connection and PAT credentials, then retry.",
+  remote_fetch_failed:          "Check your ADO connection and PAT credentials, then retry.",
+  remote_deleted:               "The remote work item was deleted. Remove this YAML entry if it is no longer needed.",
+  unknown_parent_local_id:      "The parent selector didn't match any local item. Check that metadata.localId is correct in the YAML.",
+  missing_cached_revision:      "Pull this item first to establish a baseline revision before pushing.",
+  remote_revision_changed:      "The remote item changed since the last pull. Pull to review the change, then push.",
+  yaml_changed_during_push:     "The YAML file was modified during the push. Save your changes and retry.",
+  create_parent_not_supported:  "Parent creation is out of scope for MVP. Import the parent from ADO first using the Import field.",
+};
+
+function shortHint(code: string | undefined): string | null {
+  if (!code) return null;
+  return SHORT_HINTS[code] ?? null;
+}
+
+function longHint(code: string | undefined): string | null {
+  if (!code) return null;
+  return LONG_HINTS[code] ?? howToFix(code as ValidationIssueCode) ?? null;
+}
+
+/** Returns a one-line tooltip for a non-successful last operation. */
+export function renderLastOpTooltip(result: OperationResult): string {
+  const problems = result.items.filter(
+    (i) => i.status === "failed" || i.status === "blocked",
+  );
+  if (problems.length === 1) {
+    const p = problems[0]!;
+    return shortHint(p.errorCode) ?? p.errorMessage?.slice(0, 60) ?? result.status;
+  }
+  if (problems.length > 1) {
+    return `${problems.length} items ${result.status === "failed" ? "failed" : "blocked"}`;
+  }
+  return result.status === "blocked" ? "Operation blocked" : "Operation failed";
+}
+
+export type LastOpModalContent = { title: string; body: string };
+
+/** Returns the title and inner list HTML for the last-op detail modal. */
+export function renderLastOpModal(op: {
+  type: "pull" | "push";
+  result: OperationResult;
+}): LastOpModalContent {
+  const label = op.type === "pull" ? "Pull" : "Push";
+  const statusLabel: Record<string, string> = {
+    partial_failure: "partial failure",
+    blocked: "blocked",
+    failed: "failed",
+    success: "succeeded",
+  };
+  const title = `${label} ${statusLabel[op.result.status] ?? op.result.status}`;
+
+  const problems = op.result.items.filter(
+    (i) => i.status === "failed" || i.status === "blocked",
+  );
+
+  if (problems.length === 0) {
+    return {
+      title,
+      body: `<li class="validation-issue"><div class="validation-issue__message">${escape(op.result.status)}</div></li>`,
+    };
+  }
+
+  const body = problems
+    .map((item) => {
+      const idParts: string[] = [];
+      if (item.workItemType) idParts.push(item.workItemType);
+      if (item.localId) idParts.push(item.localId);
+      if (item.adoId !== undefined) idParts.push(`ADO #${item.adoId}`);
+      const idStr = idParts.join(" · ");
+      const message = item.errorMessage ?? item.errorCode ?? item.status;
+      const fix = longHint(item.errorCode);
+      return `<li class="validation-issue">
+  ${idStr ? `<div class="validation-issue__loc">${escape(idStr)}</div>` : ""}
+  <div class="validation-issue__message">${escape(message)}</div>
+  ${fix ? `<div class="validation-issue__fix">→ ${escape(fix)}</div>` : ""}
+</li>`;
+    })
+    .join("\n");
+
+  return { title, body };
+}
+
 export type HotkeyEventLike = { key: string; altKey: boolean; shiftKey: boolean; ctrlKey?: boolean; metaKey?: boolean };
 
 export function matchHotkey(ev: HotkeyEventLike): string | null {
