@@ -431,8 +431,17 @@ async function validateSelected(): Promise<void> {
   const selected = document.querySelector<HTMLElement>("tr[data-local-id].is-selected");
   const localId = selected?.dataset.localId;
   if (!localId) return;
+  const btn = selected.querySelector<HTMLButtonElement>("button[data-action='row-validate']");
+  if (btn) btn.textContent = "Validating…";
   await postJson("/api/validate", { scope: "item", item: { localId } });
   await refresh();
+  const newRow = document.querySelector<HTMLElement>(`tr[data-local-id="${CSS.escape(localId)}"]`);
+  const pill = newRow?.querySelector<HTMLElement>(".status-pill");
+  if (pill) {
+    pill.classList.remove("status-pill--flash");
+    void pill.offsetWidth;
+    pill.classList.add("status-pill--flash");
+  }
 }
 
 export type HotkeyHandler = (action: string) => void;
