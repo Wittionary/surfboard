@@ -83,6 +83,7 @@ export type ValidationIssue = {
   yamlDocumentIndex?: number;
   localId?: string;
   field?: string;
+  line?: number;
 };
 
 export type WorkItemSelector = {

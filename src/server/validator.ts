@@ -430,7 +430,7 @@ export function validateWorkspace(items: readonly LocalWorkItem[]): WorkspaceVal
 
     if (requiresParent && !parent) {
       issues.push({
-        severity: "error",
+        severity: "warning",
         code: "missing_parent",
         message: `${item.kind} ${item.metadata.localId} requires a parent (allowed: ${allowedParents.join(", ")})`,
         yamlPath: item.yamlPath,

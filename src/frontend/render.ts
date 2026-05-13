@@ -9,6 +9,7 @@ import type {
   OperationResult,
   PullOverwriteConfirmation,
   ValidationIssue,
+  ValidationIssueCode,
 } from "../shared/types.ts";
 
 export function escape(value: string | number | undefined | null): string {
@@ -226,6 +227,53 @@ export function buildConfirmPopup(item: ItemOperationResult): ConfirmPopupModel 
  * tests don't need a real KeyboardEvent — any object with key/altKey/shiftKey
  * works as input.
  */
+export function howToFix(code: ValidationIssueCode): string {
+  switch (code) {
+    case "missing_required_field":   return "Provide a non-empty value for this required field.";
+    case "unknown_field":            return "Remove this field, or add it to your template's optionalFields. Fields returned by ADO that aren't listed in the template generate this warning.";
+    case "invalid_field_type":       return "Change the value to match the expected type defined in your template's fieldRules.";
+    case "invalid_enum_value":       return "Use one of the allowed values defined in your template's fieldRules for this field.";
+    case "invalid_kind":             return "Set kind to one of: Epic, Feature, PBI, Enabler, Task.";
+    case "invalid_api_version":      return "Set apiVersion to surfboard.ado/v1.";
+    case "yaml_invalid":             return "Fix the YAML structure — check indentation, colons, and the document envelope (apiVersion, kind, metadata, spec).";
+    case "unknown_top_level_key":    return "Remove the unrecognized top-level key. Allowed keys are: apiVersion, kind, metadata, spec.";
+    case "tags_not_allowed":         return "Remove spec.tags — the template for this work item type does not allow tags.";
+    case "missing_parent":           return "Add spec.parent with localId or adoId pointing to the parent work item.";
+    case "invalid_parent_type":      return "The parent's work item type is not allowed here. Hierarchy: Feature→Epic, PBI/Enabler→Feature, Task→PBI or Enabler.";
+    case "missing_parent_ado_id":    return "The parent exists locally but has no ADO ID. Push the parent to ADO first, then push this item.";
+    case "duplicate_local_id":       return "Change metadata.localId to a value that is unique across the workspace.";
+    case "duplicate_sibling_title":  return "Change System.Title — a sibling item under the same parent already has this normalized title.";
+    case "missing_cached_revision":  return "Pull this item to establish a local baseline before pushing.";
+    case "remote_revision_changed":  return "The remote item changed since the last pull. Pull first to review the change, then push.";
+    case "remote_deleted":           return "The remote work item was deleted. Remove this YAML entry if it is no longer needed.";
+    case "yaml_changed_during_push": return "The YAML file was modified during the push. Retry.";
+    case "template_missing":         return "Create a schema template file for this work item type in your ADO_TEMPLATE_DIR.";
+    case "template_duplicate":       return "Remove the duplicate template — only one template per work item type is allowed.";
+    case "template_malformed":       return "Fix the YAML syntax in the template file.";
+  }
+}
+
+export function renderValidationDetails(issues: readonly ValidationIssue[]): string {
+  const errors = issues.filter((i) => i.severity === "error");
+  if (errors.length === 0) {
+    return `<li class="validation-issue"><div class="validation-issue__message">No errors found.</div></li>`;
+  }
+  return errors
+    .map((issue) => {
+      const parts: string[] = [];
+      if (issue.line !== undefined) parts.push(`Line ${issue.line}`);
+      if (issue.field) parts.push(issue.field);
+      const loc = parts.join(" · ");
+      const fix = howToFix(issue.code);
+      return `<li class="validation-issue">
+  ${loc ? `<div class="validation-issue__loc">${escape(loc)}</div>` : ""}
+  <div class="validation-issue__message">${escape(issue.message)}</div>
+  ${fix ? `<div class="validation-issue__fix">→ ${escape(fix)}</div>` : ""}
+</li>`;
+    })
+    .join("\n");
+}
+
 export type HotkeyEventLike = { key: string; altKey: boolean; shiftKey: boolean; ctrlKey?: boolean; metaKey?: boolean };
 
 export function matchHotkey(ev: HotkeyEventLike): string | null {

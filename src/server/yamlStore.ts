@@ -6,7 +6,7 @@
 
 import { readdirSync, readFileSync, writeFileSync, statSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, extname, join, relative, resolve, sep } from "node:path";
-import { parseAllDocuments, stringify as yamlStringify } from "yaml";
+import { LineCounter, parseAllDocuments, stringify as yamlStringify } from "yaml";
 import type { LocalWorkItem } from "../shared/types.ts";
 
 export type WorkspaceFile = {
@@ -181,6 +181,43 @@ function isLocalWorkItemShape(value: unknown): value is LocalWorkItem {
   const fields = (spec as Record<string, unknown>).fields;
   if (typeof fields !== "object" || fields === null) return false;
   return true;
+}
+
+/**
+ * Returns the 1-indexed line number for a validation issue's field path inside
+ * a specific YAML document. Walks up the path when the exact node is absent
+ * (e.g. missing_required_field) so the line always points somewhere meaningful.
+ * Returns undefined when the file is unreadable or the path resolves to nothing.
+ */
+export function findIssueLine(
+  yamlPath: string,
+  documentIndex: number,
+  field: string | undefined,
+): number | undefined {
+  const path = issueFieldToPath(field);
+  if (!path || !existsSync(yamlPath)) return undefined;
+  try {
+    const raw = readFileSync(yamlPath, "utf8");
+    const lineCounter = new LineCounter();
+    const docs = parseAllDocuments(raw, { lineCounter });
+    const doc = docs[documentIndex];
+    if (!doc) return undefined;
+    for (let len = path.length; len > 0; len--) {
+      const node = doc.getIn(path.slice(0, len), true) as { range?: [number, number, number] | null } | null;
+      const offset = node?.range?.[0];
+      if (offset !== undefined) return lineCounter.linePos(offset).line;
+    }
+  } catch {
+    // ignore parse errors — best-effort
+  }
+  return undefined;
+}
+
+function issueFieldToPath(field: string | undefined): string[] | null {
+  if (!field) return null;
+  // ADO field reference names contain dots, so split only at the prefix boundary.
+  if (field.startsWith("spec.fields.")) return ["spec", "fields", field.slice("spec.fields.".length)];
+  return field.split(".");
 }
 
 function withLocation(item: LocalWorkItem, path: string, index: number): LocalWorkItem {

@@ -25,7 +25,7 @@ import type {
   WorkItemType,
 } from "../shared/types.ts";
 import { PARENT_MATRIX, SYSTEM_STATE_FIELD, SYSTEM_TITLE_FIELD } from "../shared/constants.ts";
-import { appendDocument } from "./yamlStore.ts";
+import { appendDocument, findIssueLine } from "./yamlStore.ts";
 import { upsertWorkItemCache } from "./db.ts";
 
 export type WorkspaceStatusResponse = {
@@ -296,6 +296,14 @@ function matchesSelector(
 
 function toView(wd: WorkspaceDocument): WorkItemView {
   const item = wd.item;
+  const withLines = wd.issues.map((issue) => ({
+    ...issue,
+    line: findIssueLine(
+      issue.yamlPath ?? wd.doc.path,
+      issue.yamlDocumentIndex ?? wd.doc.documentIndex,
+      issue.field,
+    ),
+  }));
   if (!item) {
     return {
       localId: "(invalid)",
@@ -303,7 +311,7 @@ function toView(wd: WorkspaceDocument): WorkItemView {
       title: undefined,
       yamlPath: wd.doc.path,
       yamlDocumentIndex: wd.doc.documentIndex,
-      validationIssues: wd.issues,
+      validationIssues: withLines,
     };
   }
   const title = item.spec.fields[SYSTEM_TITLE_FIELD];
@@ -318,7 +326,7 @@ function toView(wd: WorkspaceDocument): WorkItemView {
     yamlDocumentIndex: item.yamlDocumentIndex,
     parentLocalId: item.spec.parent?.localId,
     parentAdoId: item.spec.parent?.adoId,
-    validationIssues: wd.issues,
+    validationIssues: withLines,
   };
 }
 

@@ -12,6 +12,7 @@ import type {
   ItemOperationResult,
   OperationResult,
   PullOverwriteConfirmation,
+  ValidationIssue,
 } from "../shared/types.ts";
 import {
   buildConfirmPopup,
@@ -21,6 +22,7 @@ import {
   renderChildRows,
   renderFooter,
   renderParentHero,
+  renderValidationDetails,
 } from "./render.ts";
 
 /** Re-exported for back-compat with the existing test layout. */
@@ -28,6 +30,7 @@ export const matchHotkey = matchHotkeyImpl;
 
 let currentParentLocalId: string | null = null;
 let currentWorkspaceDir: string | null = null;
+let currentParentIssues: ValidationIssue[] = [];
 
 async function loadJson<T>(url: string, init?: RequestInit): Promise<T | null> {
   try {
@@ -105,9 +108,42 @@ async function renderParent(localId: string): Promise<void> {
     `/api/view/parent/${encodeURIComponent(localId)}`,
   );
   const model = buildLocalViewModel(parent);
+  currentParentIssues = parent?.parent?.validationIssues ?? [];
   applyParentHero(renderParentHero(model.parent, currentWorkspaceDir));
+  applyValidationInteractivity(currentParentIssues);
   applyChildRows(renderChildRows(model.children));
   enableActions(parent !== null);
+}
+
+function applyValidationInteractivity(issues: ValidationIssue[]): void {
+  const el = document.querySelector<HTMLElement>("[data-field='syncStatus']");
+  if (!el) return;
+  const hasErrors = issues.some((i) => i.severity === "error");
+  if (hasErrors) {
+    el.dataset.hasErrors = "";
+    el.dataset.action = "show-validation-errors";
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "0");
+  } else {
+    delete el.dataset.hasErrors;
+    delete el.dataset.action;
+    el.removeAttribute("role");
+    el.removeAttribute("tabindex");
+  }
+}
+
+function showValidationModal(): void {
+  const modal = document.querySelector<HTMLElement>("[data-region='validation-modal']");
+  if (!modal) return;
+  const list = modal.querySelector<HTMLElement>("[data-region='validation-issue-list']");
+  if (list) list.innerHTML = renderValidationDetails(currentParentIssues);
+  modal.hidden = false;
+  modal.querySelector<HTMLElement>("[data-action='close-validation-modal']")?.focus();
+}
+
+function closeValidationModal(): void {
+  const modal = document.querySelector<HTMLElement>("[data-region='validation-modal']");
+  if (modal) modal.hidden = true;
 }
 
 function enableActions(hasParent: boolean): void {
@@ -411,6 +447,8 @@ function dispatchAction(action: string): void {
   else if (action === "validate-selected") void validateSelected();
   else if (action === "row-validate") void validateSelected();
   else if (action === "new-child") void scaffoldChild();
+  else if (action === "show-validation-errors") showValidationModal();
+  else if (action === "close-validation-modal") closeValidationModal();
 }
 
 function wireActions(): void {
@@ -435,6 +473,22 @@ function wireActions(): void {
     dispatchAction(action);
   });
   document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") {
+      const validationModal = document.querySelector<HTMLElement>("[data-region='validation-modal']");
+      if (validationModal && !validationModal.hidden) {
+        closeValidationModal();
+        return;
+      }
+    }
+    if (ev.key === "Enter") {
+      const target = ev.target as HTMLElement | null;
+      const action = target?.dataset.action;
+      if (action) {
+        ev.preventDefault();
+        dispatchAction(action);
+        return;
+      }
+    }
     const tag = (ev.target as HTMLElement | null)?.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
     const action = matchHotkey(ev);

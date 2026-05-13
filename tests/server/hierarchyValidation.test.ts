@@ -19,9 +19,11 @@ function item(
 }
 
 describe("validateWorkspace — parent matrix", () => {
-  test("flags Feature without parent", () => {
+  test("warns Feature without parent", () => {
     const issues = validateWorkspace([item("Feature", "f")]).issues;
-    expect(issues.some((i) => i.code === "missing_parent" && i.localId === "f")).toBe(true);
+    const issue = issues.find((i) => i.code === "missing_parent" && i.localId === "f");
+    expect(issue).toBeDefined();
+    expect(issue?.severity).toBe("warning");
   });
 
   test("flags Epic with parent declared", () => {

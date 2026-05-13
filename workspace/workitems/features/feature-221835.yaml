@@ -30,7 +30,7 @@ spec:
     localId: feature-221835
     adoId: 221835
   fields:
-    System.Title: New PBI
+    System.Title: second test PBI
     System.Description: |
       <div>
         This is a new PBI under the witt test feature.

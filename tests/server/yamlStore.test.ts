@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
   appendDocument,
+  findIssueLine,
   parseYamlFile,
   readDocument,
   scanWorkspaceFiles,
@@ -289,6 +290,58 @@ spec:
     const files = scanWorkspaceFiles(dir, { excludeDir: templates });
     expect(files.length).toBe(1);
     expect(files[0]?.path.endsWith("real.yaml")).toBe(true);
+  });
+});
+
+describe("findIssueLine", () => {
+  const YAML_CONTENT = `apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: line-test
+spec:
+  fields:
+    System.Title: hello
+    System.State: Active
+`;
+
+  test("returns line number for an existing field", () => {
+    const dir = makeTempDir();
+    const path = join(dir, "item.yaml");
+    writeFileSync(path, YAML_CONTENT, "utf8");
+    const line = findIssueLine(path, 0, "spec.fields.System.Title");
+    expect(typeof line).toBe("number");
+    expect(line).toBeGreaterThan(0);
+  });
+
+  test("returns a line for a missing leaf by walking up to parent path", () => {
+    const dir = makeTempDir();
+    const path = join(dir, "item.yaml");
+    writeFileSync(path, YAML_CONTENT, "utf8");
+    // spec.fields.Missing doesn't exist — should walk up to spec.fields
+    const line = findIssueLine(path, 0, "spec.fields.Missing.Key");
+    expect(typeof line).toBe("number");
+    expect(line).toBeGreaterThan(0);
+  });
+
+  test("returns undefined for a nonexistent file", () => {
+    const line = findIssueLine("/no/such/file.yaml", 0, "spec.fields.System.Title");
+    expect(line).toBeUndefined();
+  });
+
+  test("returns undefined when field is undefined", () => {
+    const dir = makeTempDir();
+    const path = join(dir, "item.yaml");
+    writeFileSync(path, YAML_CONTENT, "utf8");
+    const line = findIssueLine(path, 0, undefined);
+    expect(line).toBeUndefined();
+  });
+
+  test("returns undefined for an out-of-range document index", () => {
+    const dir = makeTempDir();
+    const path = join(dir, "item.yaml");
+    writeFileSync(path, YAML_CONTENT, "utf8");
+    const line = findIssueLine(path, 99, "spec.fields.System.Title");
+    expect(line).toBeUndefined();
   });
 });
 
