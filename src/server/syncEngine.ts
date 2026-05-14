@@ -52,6 +52,17 @@ import type {
   WorkItemType,
 } from "../shared/types.ts";
 
+function localTitle(item: LocalWorkItem | undefined): string | undefined {
+  if (!item) return undefined;
+  const t = item.spec.fields["System.Title"];
+  return typeof t === "string" ? t : undefined;
+}
+
+function adoTitle(item: AdoWorkItem): string | undefined {
+  const t = item.fields["System.Title"];
+  return typeof t === "string" ? t : undefined;
+}
+
 const KIND_DIR: Record<WorkItemType, string> = {
   Epic: "epics",
   Feature: "features",
@@ -114,6 +125,7 @@ export async function pullParentAndChildren(
       errorCode: "remote_deleted",
       errorMessage: `Parent ${parent.id} is deleted in ADO`,
       adoId: parent.id,
+      title: adoTitle(parent),
     };
     items.push(blocked);
     summary.blocked += 1;
@@ -156,6 +168,7 @@ export async function pullParentAndChildren(
         status: "blocked",
         errorCode: "remote_deleted",
         adoId: child.id,
+        title: adoTitle(child),
       };
       items.push(blocked);
       summary.blocked += 1;
@@ -211,6 +224,7 @@ export async function pullSingleItem(
       status: "blocked",
       errorCode: "remote_deleted",
       adoId: remote.id,
+      title: adoTitle(remote),
     };
     items.push(blocked);
     summary.blocked += 1;
@@ -431,6 +445,7 @@ export async function pushParentAndChildren(
         errorCode: issue.code,
         errorMessage: issue.message,
         localId: issue.localId,
+        title: localTitle(issue.localId ? itemsByLocalId.get(issue.localId) : undefined),
         yamlPath: issue.yamlPath,
         yamlDocumentIndex: issue.yamlDocumentIndex,
         validationIssues: [issue],
@@ -490,6 +505,7 @@ export async function pushParentAndChildren(
         status: "blocked",
         errorCode: "remote_deleted",
         localId: p.local.metadata.localId,
+        title: localTitle(p.local),
         adoId,
         cachedRev: p.cached?.lastKnownRev,
         syncStatus: "deleted_remotely",
@@ -505,6 +521,7 @@ export async function pushParentAndChildren(
         status: "blocked",
         errorCode: "missing_cached_revision",
         localId: p.local.metadata.localId,
+        title: localTitle(p.local),
         adoId,
         remoteRev: remote.rev,
         syncStatus: "conflict_blocked",
@@ -525,6 +542,7 @@ export async function pushParentAndChildren(
         status: "blocked",
         errorCode: "remote_revision_changed",
         localId: p.local.metadata.localId,
+        title: localTitle(p.local),
         adoId,
         cachedRev: p.cached.lastKnownRev,
         remoteRev: remote.rev,
@@ -543,6 +561,7 @@ export async function pushParentAndChildren(
           status: "requires_confirmation",
           confirmationRequired: "change_parent",
           localId: p.local.metadata.localId,
+          title: localTitle(p.local),
           adoId,
           cachedRev: p.cached.lastKnownRev,
           remoteRev: remote.rev,
@@ -572,6 +591,7 @@ export async function pushParentAndChildren(
         status: "blocked",
         errorCode: "yaml_changed_during_push",
         localId: step.local.metadata.localId,
+        title: localTitle(step.local),
         yamlPath: step.local.yamlPath,
         yamlDocumentIndex: step.local.yamlDocumentIndex,
       };
@@ -776,6 +796,7 @@ async function executeCreate(
       status: "blocked",
       errorCode: "missing_parent_ado_id",
       localId: local.metadata.localId,
+      title: localTitle(local),
     };
   }
   const parentUrl = workItemUrl(deps.client.organization, parentAdoId);
@@ -794,6 +815,7 @@ async function executeCreate(
       errorCode: err instanceof AdoError ? `ado_${err.status}` : "ado_create_failed",
       errorMessage: err instanceof Error ? err.message : String(err),
       localId: local.metadata.localId,
+      title: localTitle(local),
       yamlPath: local.yamlPath,
       yamlDocumentIndex: local.yamlDocumentIndex,
     };
@@ -848,6 +870,7 @@ async function executeUpdate(
       status: "blocked",
       errorCode: "missing_cached_revision",
       localId: local.metadata.localId,
+      title: localTitle(local),
     };
   }
 
@@ -874,6 +897,7 @@ async function executeUpdate(
       errorCode: err instanceof AdoError ? `ado_${err.status}` : "ado_update_failed",
       errorMessage: err instanceof Error ? err.message : String(err),
       localId: local.metadata.localId,
+      title: localTitle(local),
       adoId: remote.id,
       cachedRev: cached.lastKnownRev,
       remoteRev: remote.rev,
@@ -1073,6 +1097,7 @@ function pullSingle(
       confirmationRequired: "overwrite_yaml",
       localId: cached.localId,
       adoId: remote.id,
+      title: adoTitle(remote),
       workItemType: cached.workItemType,
       yamlPath: cached.yamlPath,
       yamlDocumentIndex: cached.yamlDocumentIndex,
