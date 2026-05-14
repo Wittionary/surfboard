@@ -148,6 +148,13 @@ export function renderHealthPanel(report: HealthReport | null): HealthPanelRow[]
   return rows;
 }
 
+function fileBase(yamlPath: string | undefined): string | null {
+  if (!yamlPath) return null;
+  const normalized = yamlPath.replace(/\\/g, "/");
+  const slash = normalized.lastIndexOf("/");
+  return slash >= 0 ? normalized.slice(slash + 1) : normalized;
+}
+
 function formatTime(iso: string): string {
   try {
     const d = new Date(iso);
@@ -253,7 +260,10 @@ export function howToFix(code: ValidationIssueCode): string {
   }
 }
 
-export function renderValidationDetails(issues: readonly ValidationIssue[]): string {
+export function renderValidationDetails(
+  issues: readonly ValidationIssue[],
+  context?: { title?: string; adoId?: number },
+): string {
   const errors = issues.filter((i) => i.severity === "error");
   if (errors.length === 0) {
     return `<li class="validation-issue"><div class="validation-issue__message">No errors found.</div></li>`;
@@ -261,7 +271,15 @@ export function renderValidationDetails(issues: readonly ValidationIssue[]): str
   return errors
     .map((issue) => {
       const parts: string[] = [];
-      if (issue.line !== undefined) parts.push(`Line ${issue.line}`);
+      if (context?.title) parts.push(`"${context.title}"`);
+      if (context) {
+        parts.push(context.adoId !== undefined ? `ADO #${context.adoId}` : "(ADO ID n/a)");
+      }
+      const file = fileBase(issue.yamlPath);
+      if (file) {
+        parts.push(issue.line !== undefined ? `${file}:${issue.line}` : file);
+      }
+      if (issue.yamlDocumentIndex !== undefined) parts.push(`doc ${issue.yamlDocumentIndex + 1}`);
       if (issue.field) parts.push(issue.field);
       const loc = parts.join(" · ");
       const fix = howToFix(issue.code);
@@ -397,15 +415,17 @@ export function renderLastOpModal(op: {
 
   const body = problems
     .map((item) => {
-      const idParts: string[] = [];
-      if (item.workItemType) idParts.push(item.workItemType);
-      if (item.localId) idParts.push(item.localId);
-      if (item.adoId !== undefined) idParts.push(`ADO #${item.adoId}`);
-      const idStr = idParts.join(" · ");
+      const locParts: string[] = [];
+      if (item.title) locParts.push(`"${item.title}"`);
+      locParts.push(item.adoId !== undefined ? `ADO #${item.adoId}` : "(ADO ID n/a)");
+      const file = fileBase(item.yamlPath);
+      if (file) locParts.push(file);
+      if (item.yamlDocumentIndex !== undefined) locParts.push(`doc ${item.yamlDocumentIndex + 1}`);
+      const locStr = locParts.join(" · ");
       const message = item.errorMessage ?? item.errorCode ?? item.status;
       const fix = longHint(item.errorCode);
       return `<li class="validation-issue">
-  ${idStr ? `<div class="validation-issue__loc">${escape(idStr)}</div>` : ""}
+  ${locStr ? `<div class="validation-issue__loc">${escape(locStr)}</div>` : ""}
   <div class="validation-issue__message">${escape(message)}</div>
   ${fix ? `<div class="validation-issue__fix">→ ${escape(fix)}</div>` : ""}
 </li>`;

@@ -5,6 +5,7 @@
 import type {
   ParentViewResponse,
   ScaffoldChildResponse,
+  WorkItemView,
   WorkspaceStatusResponse,
 } from "../server/routes.ts";
 import type {
@@ -34,6 +35,7 @@ export const matchHotkey = matchHotkeyImpl;
 let currentParentLocalId: string | null = null;
 let currentWorkspaceDir: string | null = null;
 let currentParentIssues: ValidationIssue[] = [];
+let currentParentView: WorkItemView | null = null;
 let lastOpFull: { type: "pull" | "push"; result: OperationResult; at: Date } | null = null;
 
 function setLastOp(type: "pull" | "push", result: OperationResult): void {
@@ -153,6 +155,7 @@ async function renderParent(localId: string): Promise<void> {
   );
   const model = buildLocalViewModel(parent);
   currentParentIssues = parent?.parent?.validationIssues ?? [];
+  currentParentView = model.parent;
   applyParentHero(renderParentHero(model.parent, currentWorkspaceDir));
   applyValidationInteractivity(currentParentIssues);
   applyChildRows(renderChildRows(model.children));
@@ -180,7 +183,10 @@ function showValidationModal(): void {
   const modal = document.querySelector<HTMLElement>("[data-region='validation-modal']");
   if (!modal) return;
   const list = modal.querySelector<HTMLElement>("[data-region='validation-issue-list']");
-  if (list) list.innerHTML = renderValidationDetails(currentParentIssues);
+  if (list) list.innerHTML = renderValidationDetails(currentParentIssues, {
+    title: currentParentView?.title,
+    adoId: currentParentView?.adoId,
+  });
   modal.hidden = false;
   modal.querySelector<HTMLElement>("[data-action='close-validation-modal']")?.focus();
 }
