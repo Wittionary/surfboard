@@ -5,6 +5,7 @@
 import type {
   ParentViewResponse,
   ScaffoldChildResponse,
+  WorkItemView,
   WorkspaceStatusResponse,
 } from "../server/routes.ts";
 import type {
@@ -21,6 +22,9 @@ import {
   matchHotkey as matchHotkeyImpl,
   renderChildRows,
   renderFooter,
+  renderLastOpModal,
+  renderLastOpSummary,
+  renderLastOpTooltip,
   renderParentHero,
   renderValidationDetails,
 } from "./render.ts";
@@ -31,6 +35,48 @@ export const matchHotkey = matchHotkeyImpl;
 let currentParentLocalId: string | null = null;
 let currentWorkspaceDir: string | null = null;
 let currentParentIssues: ValidationIssue[] = [];
+let currentParentView: WorkItemView | null = null;
+let lastOpFull: { type: "pull" | "push"; result: OperationResult; at: Date } | null = null;
+
+function setLastOp(type: "pull" | "push", result: OperationResult): void {
+  const at = new Date();
+  lastOpFull = { type, result, at };
+  const el = document.querySelector<HTMLElement>("[data-field='lastOp']");
+  if (!el) return;
+  const { text, status } = renderLastOpSummary({ type, result, at });
+  el.textContent = text;
+  el.dataset.status = status;
+  const actionable = status === "warn" || status === "fail";
+  if (actionable) {
+    el.title = renderLastOpTooltip(result);
+    el.dataset.action = "show-last-op";
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "0");
+  } else {
+    el.title = "";
+    delete el.dataset.action;
+    el.removeAttribute("role");
+    el.removeAttribute("tabindex");
+  }
+}
+
+function showLastOpModal(): void {
+  if (!lastOpFull) return;
+  const modal = document.querySelector<HTMLElement>("[data-region='last-op-modal']");
+  if (!modal) return;
+  const { title, body } = renderLastOpModal(lastOpFull);
+  const titleEl = modal.querySelector<HTMLElement>("[data-field='last-op-modal-title']");
+  if (titleEl) titleEl.textContent = title;
+  const list = modal.querySelector<HTMLElement>("[data-region='last-op-issue-list']");
+  if (list) list.innerHTML = body;
+  modal.hidden = false;
+  modal.querySelector<HTMLElement>("[data-action='close-last-op-modal']")?.focus();
+}
+
+function closeLastOpModal(): void {
+  const modal = document.querySelector<HTMLElement>("[data-region='last-op-modal']");
+  if (modal) modal.hidden = true;
+}
 
 async function loadJson<T>(url: string, init?: RequestInit): Promise<T | null> {
   try {
@@ -109,6 +155,7 @@ async function renderParent(localId: string): Promise<void> {
   );
   const model = buildLocalViewModel(parent);
   currentParentIssues = parent?.parent?.validationIssues ?? [];
+  currentParentView = model.parent;
   applyParentHero(renderParentHero(model.parent, currentWorkspaceDir));
   applyValidationInteractivity(currentParentIssues);
   applyChildRows(renderChildRows(model.children));
@@ -136,7 +183,10 @@ function showValidationModal(): void {
   const modal = document.querySelector<HTMLElement>("[data-region='validation-modal']");
   if (!modal) return;
   const list = modal.querySelector<HTMLElement>("[data-region='validation-issue-list']");
-  if (list) list.innerHTML = renderValidationDetails(currentParentIssues);
+  if (list) list.innerHTML = renderValidationDetails(currentParentIssues, {
+    title: currentParentView?.title,
+    adoId: currentParentView?.adoId,
+  });
   modal.hidden = false;
   modal.querySelector<HTMLElement>("[data-action='close-validation-modal']")?.focus();
 }
@@ -302,6 +352,7 @@ async function pullAll(): Promise<void> {
         });
       }
     }
+    if (result) setLastOp("pull", result);
     await refresh();
   } finally {
     setBusy(false);
@@ -329,6 +380,7 @@ async function pullSelectedRow(): Promise<void> {
         });
       }
     }
+    if (result) setLastOp("pull", result);
     await refresh();
   } finally {
     setBusy(false);
@@ -365,6 +417,7 @@ async function pushAll(): Promise<void> {
         });
       }
     }
+    if (result) setLastOp("push", result);
     await refresh();
   } finally {
     setBusy(false);
@@ -394,6 +447,7 @@ async function pushSelectedRow(): Promise<void> {
         }
       }
     }
+    if (result) setLastOp("push", result);
     await refresh();
   } finally {
     setBusy(false);
@@ -458,6 +512,8 @@ function dispatchAction(action: string): void {
   else if (action === "new-child") void scaffoldChild();
   else if (action === "show-validation-errors") showValidationModal();
   else if (action === "close-validation-modal") closeValidationModal();
+  else if (action === "show-last-op") showLastOpModal();
+  else if (action === "close-last-op-modal") closeLastOpModal();
 }
 
 function wireActions(): void {
@@ -483,6 +539,8 @@ function wireActions(): void {
   });
   document.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape") {
+      const lastOpModal = document.querySelector<HTMLElement>("[data-region='last-op-modal']");
+      if (lastOpModal && !lastOpModal.hidden) { closeLastOpModal(); return; }
       const validationModal = document.querySelector<HTMLElement>("[data-region='validation-modal']");
       if (validationModal && !validationModal.hidden) {
         closeValidationModal();

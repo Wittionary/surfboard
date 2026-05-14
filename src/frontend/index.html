@@ -68,6 +68,7 @@
 
     <footer class="status-footer" data-region="footer">
       <span data-field="lastSync">Last sync: —</span>
+      <span class="last-op" data-field="lastOp">Last op: —</span>
       <span data-field="health">Health: —</span>
       <span data-field="version">Version: —</span>
     </footer>
@@ -101,6 +102,16 @@
           <button type="button" data-action="close-validation-modal" aria-label="Close">✕</button>
         </div>
         <ul class="validation-issue-list" data-region="validation-issue-list"></ul>
+      </div>
+    </div>
+
+    <div class="last-op-modal" data-region="last-op-modal" hidden>
+      <div class="last-op-modal__panel">
+        <div class="last-op-modal__header">
+          <h2 data-field="last-op-modal-title">Operation details</h2>
+          <button type="button" data-action="close-last-op-modal" aria-label="Close">✕</button>
+        </div>
+        <ul class="validation-issue-list" data-region="last-op-issue-list"></ul>
       </div>
     </div>
 

@@ -244,6 +244,24 @@ kbd {
 }
 .status-footer [data-field="version"] { margin-left: auto; }
 
+.last-op {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.last-op::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+.last-op[data-status="ok"]::before   { background: var(--ok); }
+.last-op[data-status="warn"]::before { background: var(--warn); }
+.last-op[data-status="fail"]::before { background: var(--fail); }
+
 .status-pill {
   display: inline-block;
   padding: 2px 8px;
@@ -273,7 +291,17 @@ body[data-busy] .child-grid { opacity: 0.6; pointer-events: none; }
 }
 [data-field="syncStatus"][data-has-errors]:hover { text-decoration-style: solid; }
 
-.validation-modal {
+.last-op[data-status="warn"],
+.last-op[data-status="fail"] {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+.last-op[data-status="warn"]:hover,
+.last-op[data-status="fail"]:hover { text-decoration-style: solid; }
+
+.validation-modal,
+.last-op-modal {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
@@ -283,9 +311,11 @@ body[data-busy] .child-grid { opacity: 0.6; pointer-events: none; }
   z-index: 100;
   animation: fade-in 120ms ease;
 }
-.validation-modal[hidden] { display: none; }
+.validation-modal[hidden],
+.last-op-modal[hidden] { display: none; }
 
-.validation-modal__panel {
+.validation-modal__panel,
+.last-op-modal__panel {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -298,15 +328,18 @@ body[data-busy] .child-grid { opacity: 0.6; pointer-events: none; }
   box-shadow: var(--shadow);
 }
 
-.validation-modal__header {
+.validation-modal__header,
+.last-op-modal__header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
   flex-shrink: 0;
 }
-.validation-modal__header h2 { margin: 0; font-size: 16px; }
-.validation-modal__header button { padding: 4px 8px; }
+.validation-modal__header h2,
+.last-op-modal__header h2 { margin: 0; font-size: 16px; }
+.validation-modal__header button,
+.last-op-modal__header button { padding: 4px 8px; }
 
 .validation-issue-list {
   list-style: none;

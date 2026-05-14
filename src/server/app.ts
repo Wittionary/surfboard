@@ -8,6 +8,7 @@ import type { AppConfig } from "./config.ts";
 import type { DbHandle } from "./db.ts";
 import { FileWatcher } from "./fileWatcher.ts";
 import { buildHealthReport } from "./health.ts";
+import { childLog } from "./logger.ts";
 import {
   registerAuditRoutes,
   registerLocalRoutes,
@@ -17,6 +18,8 @@ import {
 } from "./routes.ts";
 import { registerStatic } from "./static.ts";
 import { WorkspaceState } from "./workspaceState.ts";
+
+const log = childLog("http");
 
 export type AppDeps = {
   config: AppConfig;
@@ -44,6 +47,16 @@ export function buildAppHandle(deps: AppDeps): AppHandle {
   const fastify = Fastify({
     logger: false,
     disableRequestLogging: true,
+  });
+
+  fastify.addHook("onResponse", (req, reply, done) => {
+    const ms = Math.round(reply.elapsedTime);
+    if (reply.statusCode >= 400) {
+      log.warn({ method: req.method, url: req.url, status: reply.statusCode, ms }, "http");
+    } else {
+      log.debug({ method: req.method, url: req.url, status: reply.statusCode, ms }, "http");
+    }
+    done();
   });
 
   let workspace: WorkspaceState | null = null;

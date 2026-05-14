@@ -2,7 +2,11 @@
 // queries without re-scanning every request.
 
 import type { Database } from "bun:sqlite";
+import { childLog } from "./logger.ts";
 import { indexWorkspace, scanWorkspace, type WorkspaceScanResult } from "./workspace.ts";
+import { findIssueLine } from "./yamlStore.ts";
+
+const log = childLog("workspace");
 
 export type WorkspaceStateDeps = {
   workspaceDir: string;
@@ -43,12 +47,47 @@ export class WorkspaceState {
       workspaceDir: this.deps.workspaceDir,
       templateDir: this.deps.templateDir,
     });
-    indexWorkspace(this.deps.db, scan, options);
+    const { upserted, pruned } = indexWorkspace(this.deps.db, scan, options);
     this.snapshot = {
       scan,
       refreshedAt: new Date().toISOString(),
       templateDir: this.deps.templateDir,
     };
+
+    const errors = scan.issues.filter((i) => i.severity === "error");
+    const warnings = scan.issues.filter((i) => i.severity === "warning");
+    log.info(
+      {
+        workspaceDir: this.deps.workspaceDir,
+        docCount: scan.documents.length,
+        validCount: scan.documents.filter((d) => d.item).length,
+        upserted,
+        pruned,
+        errorCount: errors.length,
+        warnCount: warnings.length,
+      },
+      "workspace refreshed",
+    );
+
+    for (const issue of [...errors, ...warnings]) {
+      const line =
+        issue.yamlPath !== undefined && issue.yamlDocumentIndex !== undefined
+          ? findIssueLine(issue.yamlPath, issue.yamlDocumentIndex, issue.field)
+          : undefined;
+      const logFn = issue.severity === "error" ? log.error.bind(log) : log.warn.bind(log);
+      logFn(
+        {
+          code: issue.code,
+          field: issue.field,
+          localId: issue.localId,
+          file: issue.yamlPath,
+          ...(issue.yamlDocumentIndex !== undefined ? { docIndex: issue.yamlDocumentIndex } : {}),
+          ...(line !== undefined ? { line } : {}),
+        },
+        issue.message,
+      );
+    }
+
     return this.snapshot;
   }
 

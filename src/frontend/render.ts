@@ -148,6 +148,13 @@ export function renderHealthPanel(report: HealthReport | null): HealthPanelRow[]
   return rows;
 }
 
+function fileBase(yamlPath: string | undefined): string | null {
+  if (!yamlPath) return null;
+  const normalized = yamlPath.replace(/\\/g, "/");
+  const slash = normalized.lastIndexOf("/");
+  return slash >= 0 ? normalized.slice(slash + 1) : normalized;
+}
+
 function formatTime(iso: string): string {
   try {
     const d = new Date(iso);
@@ -253,7 +260,10 @@ export function howToFix(code: ValidationIssueCode): string {
   }
 }
 
-export function renderValidationDetails(issues: readonly ValidationIssue[]): string {
+export function renderValidationDetails(
+  issues: readonly ValidationIssue[],
+  context?: { title?: string; adoId?: number },
+): string {
   const errors = issues.filter((i) => i.severity === "error");
   if (errors.length === 0) {
     return `<li class="validation-issue"><div class="validation-issue__message">No errors found.</div></li>`;
@@ -261,7 +271,15 @@ export function renderValidationDetails(issues: readonly ValidationIssue[]): str
   return errors
     .map((issue) => {
       const parts: string[] = [];
-      if (issue.line !== undefined) parts.push(`Line ${issue.line}`);
+      if (context?.title) parts.push(`"${context.title}"`);
+      if (context) {
+        parts.push(context.adoId !== undefined ? `ADO #${context.adoId}` : "(ADO ID n/a)");
+      }
+      const file = fileBase(issue.yamlPath);
+      if (file) {
+        parts.push(issue.line !== undefined ? `${file}:${issue.line}` : file);
+      }
+      if (issue.yamlDocumentIndex !== undefined) parts.push(`doc ${issue.yamlDocumentIndex + 1}`);
       if (issue.field) parts.push(issue.field);
       const loc = parts.join(" · ");
       const fix = howToFix(issue.code);
@@ -272,6 +290,149 @@ export function renderValidationDetails(issues: readonly ValidationIssue[]): str
 </li>`;
     })
     .join("\n");
+}
+
+export type LastOpSummary = {
+  text: string;
+  status: "ok" | "warn" | "fail";
+};
+
+export function renderLastOpSummary(op: {
+  type: "pull" | "push";
+  result: OperationResult;
+  at: Date;
+}): LastOpSummary {
+  const { type, result, at } = op;
+  const s = result.summary;
+  const label = type === "pull" ? "Pull" : "Push";
+  const time = formatTime(at.toISOString());
+
+  let detail: string;
+  if (result.status === "success" || result.status === "partial_failure") {
+    if (type === "pull") {
+      detail = s.pulled > 0 ? `${s.pulled} pulled` : "up to date";
+    } else {
+      const n = s.created + s.updated;
+      detail = n > 0 ? `${n} pushed` : "no changes";
+    }
+    const extra: string[] = [];
+    if (s.failed > 0) extra.push(`${s.failed} failed`);
+    if (s.blocked > 0) extra.push(`${s.blocked} blocked`);
+    if (extra.length > 0) detail += `, ${extra.join(", ")}`;
+  } else {
+    detail = result.status;
+  }
+
+  const status: "ok" | "warn" | "fail" =
+    result.status === "success" ? "ok" :
+    result.status === "partial_failure" || result.status === "blocked" ? "warn" : "fail";
+
+  return { text: `${label} · ${detail} · ${time}`, status };
+}
+
+const SHORT_HINTS: Record<string, string> = {
+  parent_fetch_failed:          "ADO fetch failed",
+  children_fetch_failed:        "ADO fetch failed",
+  fetch_failed:                 "ADO fetch failed",
+  remote_fetch_failed:          "ADO fetch failed",
+  remote_deleted:               "Deleted in ADO",
+  unknown_parent_local_id:      "Parent not found",
+  missing_cached_revision:      "Pull required",
+  remote_revision_changed:      "Revision drift — pull first",
+  yaml_changed_during_push:     "YAML changed — retry",
+  create_parent_not_supported:  "Parent creation out of scope",
+  missing_parent_ado_id:        "Push parent first",
+  duplicate_local_id:           "Duplicate local ID",
+  duplicate_sibling_title:      "Duplicate sibling title",
+  missing_required_field:       "Required field missing",
+  yaml_invalid:                 "Invalid YAML",
+};
+
+const LONG_HINTS: Record<string, string> = {
+  parent_fetch_failed:          "Check your ADO connection and PAT credentials, then retry.",
+  children_fetch_failed:        "Check your ADO connection and PAT credentials, then retry.",
+  fetch_failed:                 "Check your ADO connection and PAT credentials, then retry.",
+  remote_fetch_failed:          "Check your ADO connection and PAT credentials, then retry.",
+  remote_deleted:               "The remote work item was deleted. Remove this YAML entry if it is no longer needed.",
+  unknown_parent_local_id:      "The parent selector didn't match any local item. Check that metadata.localId is correct in the YAML.",
+  missing_cached_revision:      "Pull this item first to establish a baseline revision before pushing.",
+  remote_revision_changed:      "The remote item changed since the last pull. Pull to review the change, then push.",
+  yaml_changed_during_push:     "The YAML file was modified during the push. Save your changes and retry.",
+  create_parent_not_supported:  "Parent creation is out of scope for MVP. Import the parent from ADO first using the Import field.",
+};
+
+function shortHint(code: string | undefined): string | null {
+  if (!code) return null;
+  return SHORT_HINTS[code] ?? null;
+}
+
+function longHint(code: string | undefined): string | null {
+  if (!code) return null;
+  return LONG_HINTS[code] ?? howToFix(code as ValidationIssueCode) ?? null;
+}
+
+/** Returns a one-line tooltip for a non-successful last operation. */
+export function renderLastOpTooltip(result: OperationResult): string {
+  const problems = result.items.filter(
+    (i) => i.status === "failed" || i.status === "blocked",
+  );
+  if (problems.length === 1) {
+    const p = problems[0]!;
+    return shortHint(p.errorCode) ?? p.errorMessage?.slice(0, 60) ?? result.status;
+  }
+  if (problems.length > 1) {
+    return `${problems.length} items ${result.status === "failed" ? "failed" : "blocked"}`;
+  }
+  return result.status === "blocked" ? "Operation blocked" : "Operation failed";
+}
+
+export type LastOpModalContent = { title: string; body: string };
+
+/** Returns the title and inner list HTML for the last-op detail modal. */
+export function renderLastOpModal(op: {
+  type: "pull" | "push";
+  result: OperationResult;
+}): LastOpModalContent {
+  const label = op.type === "pull" ? "Pull" : "Push";
+  const statusLabel: Record<string, string> = {
+    partial_failure: "partial failure",
+    blocked: "blocked",
+    failed: "failed",
+    success: "succeeded",
+  };
+  const title = `${label} ${statusLabel[op.result.status] ?? op.result.status}`;
+
+  const problems = op.result.items.filter(
+    (i) => i.status === "failed" || i.status === "blocked",
+  );
+
+  if (problems.length === 0) {
+    return {
+      title,
+      body: `<li class="validation-issue"><div class="validation-issue__message">${escape(op.result.status)}</div></li>`,
+    };
+  }
+
+  const body = problems
+    .map((item) => {
+      const locParts: string[] = [];
+      if (item.title) locParts.push(`"${item.title}"`);
+      locParts.push(item.adoId !== undefined ? `ADO #${item.adoId}` : "(ADO ID n/a)");
+      const file = fileBase(item.yamlPath);
+      if (file) locParts.push(file);
+      if (item.yamlDocumentIndex !== undefined) locParts.push(`doc ${item.yamlDocumentIndex + 1}`);
+      const locStr = locParts.join(" · ");
+      const message = item.errorMessage ?? item.errorCode ?? item.status;
+      const fix = longHint(item.errorCode);
+      return `<li class="validation-issue">
+  ${locStr ? `<div class="validation-issue__loc">${escape(locStr)}</div>` : ""}
+  <div class="validation-issue__message">${escape(message)}</div>
+  ${fix ? `<div class="validation-issue__fix">→ ${escape(fix)}</div>` : ""}
+</li>`;
+    })
+    .join("\n");
+
+  return { title, body };
 }
 
 export type HotkeyEventLike = { key: string; altKey: boolean; shiftKey: boolean; ctrlKey?: boolean; metaKey?: boolean };

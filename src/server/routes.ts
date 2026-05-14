@@ -5,6 +5,7 @@
 import type { FastifyInstance } from "fastify";
 import type { AdoClient } from "./adoClient.ts";
 import type { Database } from "bun:sqlite";
+import { childLog } from "./logger.ts";
 import {
   pullParentAndChildren,
   pullSingleItem,
@@ -73,6 +74,22 @@ export type PullRouteDeps = {
   pat?: string;
 };
 
+const log = childLog("sync");
+
+function logOpResult(op: string, result: OperationResult): void {
+  const { success, failure, blocked } = summarizeOpResult(result);
+  const level = result.status === "success" ? "info" : result.status === "failed" ? "error" : "warn";
+  log[level]({ op, status: result.status, success, failure, blocked }, op);
+  for (const item of result.items) {
+    if (item.status === "failed" || item.status === "blocked") {
+      log.warn(
+        { op, localId: item.localId, adoId: item.adoId, status: item.status, errorCode: item.errorCode },
+        item.errorMessage ?? item.errorCode ?? item.status,
+      );
+    }
+  }
+}
+
 export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): void {
   app.post<{ Body: PullAllRequest }>("/api/pull/all", async (req, reply): Promise<OperationResult | undefined> => {
     const body = req.body;
@@ -88,10 +105,12 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
       },
       { selector: body.parent, confirmations: body.confirmations },
     );
+    const enriched = enrichWithTitles(result, deps.workspace);
+    logOpResult("pull-all", enriched);
     // Refresh local cache view so subsequent /api/view reflects new YAML.
     deps.workspace.refresh();
-    deps.workspace.recordLastSync(summarizeOpResult(result));
-    return result;
+    deps.workspace.recordLastSync(summarizeOpResult(enriched));
+    return enriched;
   });
 
   app.post<{ Body: PullItemRequest }>("/api/pull/item", async (req, reply): Promise<OperationResult | undefined> => {
@@ -108,9 +127,11 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
       },
       { selector: body.item, confirmation: body.confirmation },
     );
+    const enriched = enrichWithTitles(result, deps.workspace);
+    logOpResult("pull-item", enriched);
     deps.workspace.refresh();
-    deps.workspace.recordLastSync(summarizeOpResult(result));
-    return result;
+    deps.workspace.recordLastSync(summarizeOpResult(enriched));
+    return enriched;
   });
 
   app.post<{ Body: PushAllRequest }>("/api/push/all", async (req, reply): Promise<OperationResult | undefined> => {
@@ -132,9 +153,11 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
         confirmedParentChanges: body.confirmedParentChanges,
       },
     );
+    const enriched = enrichWithTitles(result, deps.workspace);
+    logOpResult("push-all", enriched);
     deps.workspace.refresh();
-    deps.workspace.recordLastSync(summarizeOpResult(result));
-    return result;
+    deps.workspace.recordLastSync(summarizeOpResult(enriched));
+    return enriched;
   });
 
   app.post<{ Body: PushItemRequest }>("/api/push/item", async (req, reply): Promise<OperationResult | undefined> => {
@@ -154,9 +177,11 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
         confirmedParentChange: body.confirmedParentChange,
       },
     );
+    const enriched = enrichWithTitles(result, deps.workspace);
+    logOpResult("push-item", enriched);
     deps.workspace.refresh();
-    deps.workspace.recordLastSync(summarizeOpResult(result));
-    return result;
+    deps.workspace.recordLastSync(summarizeOpResult(enriched));
+    return enriched;
   });
 }
 
@@ -340,6 +365,23 @@ function summarizeOpResult(result: OperationResult): { success: number; failure:
     else if (item.status === "blocked" || item.status === "requires_confirmation") blocked += 1;
   }
   return { success, failure, blocked };
+}
+
+/** Stamps `title` onto each ItemOperationResult using the current workspace scan. */
+function enrichWithTitles(result: OperationResult, workspace: WorkspaceState): OperationResult {
+  const titleByLocalId = new Map<string, string>();
+  for (const doc of workspace.current().scan.documents) {
+    if (!doc.item) continue;
+    const t = doc.item.spec.fields[SYSTEM_TITLE_FIELD];
+    if (typeof t === "string" && t) titleByLocalId.set(doc.item.metadata.localId, t);
+  }
+  return {
+    ...result,
+    items: result.items.map((item) => {
+      const t = item.localId ? titleByLocalId.get(item.localId) : undefined;
+      return t ? { ...item, title: t } : item;
+    }),
+  };
 }
 
 // Feature → PBI is the user-selected default; all other types have exactly one valid child.
