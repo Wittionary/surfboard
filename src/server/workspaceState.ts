@@ -4,6 +4,7 @@
 import type { Database } from "bun:sqlite";
 import { childLog } from "./logger.ts";
 import { indexWorkspace, scanWorkspace, type WorkspaceScanResult } from "./workspace.ts";
+import { findIssueLine } from "./yamlStore.ts";
 
 const log = childLog("workspace");
 
@@ -68,15 +69,20 @@ export class WorkspaceState {
       "workspace refreshed",
     );
 
-    for (const issue of errors) {
-      log.warn(
+    for (const issue of [...errors, ...warnings]) {
+      const line =
+        issue.yamlPath !== undefined && issue.yamlDocumentIndex !== undefined
+          ? findIssueLine(issue.yamlPath, issue.yamlDocumentIndex, issue.field)
+          : undefined;
+      const logFn = issue.severity === "error" ? log.error.bind(log) : log.warn.bind(log);
+      logFn(
         {
           code: issue.code,
-          severity: issue.severity,
           field: issue.field,
           localId: issue.localId,
-          yamlPath: issue.yamlPath,
-          yamlDocumentIndex: issue.yamlDocumentIndex,
+          file: issue.yamlPath,
+          ...(issue.yamlDocumentIndex !== undefined ? { docIndex: issue.yamlDocumentIndex } : {}),
+          ...(line !== undefined ? { line } : {}),
         },
         issue.message,
       );
