@@ -331,21 +331,41 @@ export function renderLastOpSummary(op: {
 }
 
 const SHORT_HINTS: Record<string, string> = {
+  // Operation-level codes
   parent_fetch_failed:          "ADO fetch failed",
   children_fetch_failed:        "ADO fetch failed",
   fetch_failed:                 "ADO fetch failed",
   remote_fetch_failed:          "ADO fetch failed",
   remote_deleted:               "Deleted in ADO",
   unknown_parent_local_id:      "Parent not found",
+  item_not_found:               "Item not found",
   missing_cached_revision:      "Pull required",
   remote_revision_changed:      "Revision drift — pull first",
   yaml_changed_during_push:     "YAML changed — retry",
   create_parent_not_supported:  "Parent creation out of scope",
   missing_parent_ado_id:        "Push parent first",
+  ado_401:                      "Unauthorized",
+  ado_403:                      "Permission denied",
+  ado_404:                      "Not found in ADO",
+  ado_create_failed:            "Create failed",
+  ado_update_failed:            "Update failed",
+  // Validation codes (surfaced via prevalidation in operation results)
   duplicate_local_id:           "Duplicate local ID",
   duplicate_sibling_title:      "Duplicate sibling title",
   missing_required_field:       "Required field missing",
+  missing_parent:               "Parent missing",
+  invalid_parent_type:          "Invalid parent type",
   yaml_invalid:                 "Invalid YAML",
+  unknown_top_level_key:        "Unknown key",
+  unknown_field:                "Unknown field",
+  invalid_kind:                 "Invalid kind",
+  invalid_api_version:          "Invalid apiVersion",
+  invalid_field_type:           "Invalid field type",
+  invalid_enum_value:           "Invalid value",
+  tags_not_allowed:             "Tags not allowed",
+  template_missing:             "Template missing",
+  template_duplicate:           "Duplicate template",
+  template_malformed:           "Malformed template",
 };
 
 const LONG_HINTS: Record<string, string> = {
@@ -355,10 +375,16 @@ const LONG_HINTS: Record<string, string> = {
   remote_fetch_failed:          "Check your ADO connection and PAT credentials, then retry.",
   remote_deleted:               "The remote work item was deleted. Remove this YAML entry if it is no longer needed.",
   unknown_parent_local_id:      "The parent selector didn't match any local item. Check that metadata.localId is correct in the YAML.",
+  item_not_found:               "No local work item matched this selector. Check the localId or ADO ID in your request.",
   missing_cached_revision:      "Pull this item first to establish a baseline revision before pushing.",
   remote_revision_changed:      "The remote item changed since the last pull. Pull to review the change, then push.",
   yaml_changed_during_push:     "The YAML file was modified during the push. Save your changes and retry.",
   create_parent_not_supported:  "Parent creation is out of scope for MVP. Import the parent from ADO first using the Import field.",
+  ado_401:                      "Your ADO PAT is expired or invalid. Update ADO_PAT in your environment and restart.",
+  ado_403:                      "Your PAT does not have write access to this ADO project. Check project permissions in ADO.",
+  ado_404:                      "The work item or resource was not found in ADO. It may have been deleted or moved.",
+  ado_create_failed:            "ADO returned an unexpected error creating the work item. Check the ADO_ORG and ADO_PROJECT settings.",
+  ado_update_failed:            "ADO returned an unexpected error updating the work item. Check the ADO_ORG and ADO_PROJECT settings.",
 };
 
 function shortHint(code: string | undefined): string | null {

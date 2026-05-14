@@ -155,6 +155,7 @@ export async function pullParentAndChildren(
         action: "pull",
         status: "blocked",
         errorCode: "remote_deleted",
+        errorMessage: `ADO #${child.id} was deleted remotely`,
         adoId: child.id,
       };
       items.push(blocked);
@@ -210,6 +211,7 @@ export async function pullSingleItem(
       action: "pull",
       status: "blocked",
       errorCode: "remote_deleted",
+      errorMessage: `ADO #${remote.id} was deleted remotely`,
       adoId: remote.id,
     };
     items.push(blocked);
@@ -489,6 +491,7 @@ export async function pushParentAndChildren(
         action: "block",
         status: "blocked",
         errorCode: "remote_deleted",
+        errorMessage: `ADO #${adoId} was deleted remotely`,
         localId: p.local.metadata.localId,
         adoId,
         cachedRev: p.cached?.lastKnownRev,
@@ -504,6 +507,7 @@ export async function pushParentAndChildren(
         action: "block",
         status: "blocked",
         errorCode: "missing_cached_revision",
+        errorMessage: `'${p.local.metadata.localId}' (ADO #${adoId}) has no pull baseline — pull this item before pushing`,
         localId: p.local.metadata.localId,
         adoId,
         remoteRev: remote.rev,
@@ -524,6 +528,7 @@ export async function pushParentAndChildren(
         action: "block",
         status: "blocked",
         errorCode: "remote_revision_changed",
+        errorMessage: `'${p.local.metadata.localId}' (ADO #${adoId}) changed remotely: cached rev ${p.cached.lastKnownRev}, remote rev ${remote.rev} — pull first`,
         localId: p.local.metadata.localId,
         adoId,
         cachedRev: p.cached.lastKnownRev,
@@ -571,6 +576,7 @@ export async function pushParentAndChildren(
         action: "block",
         status: "blocked",
         errorCode: "yaml_changed_during_push",
+        errorMessage: `'${step.local.metadata.localId}' YAML file changed on disk since the push started — retry`,
         localId: step.local.metadata.localId,
         yamlPath: step.local.yamlPath,
         yamlDocumentIndex: step.local.yamlDocumentIndex,
@@ -621,8 +627,10 @@ export async function pushSingleItem(
     const blocked: ItemOperationResult = {
       action: "block",
       status: "blocked",
-      errorCode: "unknown_parent_local_id",
+      errorCode: "item_not_found",
       errorMessage: `No local work item matches selector ${JSON.stringify(input.selector)}`,
+      localId: input.selector.localId,
+      adoId: input.selector.adoId,
     };
     auditFor(deps, operationId, blocked, input);
     return {
@@ -717,7 +725,7 @@ function prevalidate(
         issues.push({
           severity: "error",
           code: "missing_cached_revision",
-          message: `${item.kind} ${item.metadata.localId} has metadata.adoId=${item.metadata.adoId} but no cached revision; pull first to establish baseline`,
+          message: `${item.kind} '${item.metadata.localId}' (ADO #${item.metadata.adoId}) has no pull baseline — pull this item before pushing`,
           yamlPath: item.yamlPath,
           yamlDocumentIndex: item.yamlDocumentIndex,
           localId: item.metadata.localId,
@@ -730,7 +738,7 @@ function prevalidate(
       issues.push({
         severity: "error",
         code: "missing_parent_ado_id",
-        message: `${item.kind} ${item.metadata.localId} cannot be pushed without parent.adoId`,
+        message: `${item.kind} '${item.metadata.localId}' has no parent ADO ID — push the parent to ADO first`,
         yamlPath: item.yamlPath,
         yamlDocumentIndex: item.yamlDocumentIndex,
         localId: item.metadata.localId,
@@ -743,7 +751,7 @@ function prevalidate(
         issues.push({
           severity: "error",
           code: "invalid_parent_type",
-          message: `${item.kind} ${item.metadata.localId} parent kind ${parentRow.workItemType} not in ${allowed.join(", ")}`,
+          message: `${item.kind} '${item.metadata.localId}' has parent type ${parentRow.workItemType} — allowed: ${allowed.join(", ")}`,
           yamlPath: item.yamlPath,
           yamlDocumentIndex: item.yamlDocumentIndex,
           localId: item.metadata.localId,
@@ -775,6 +783,7 @@ async function executeCreate(
       action: "create",
       status: "blocked",
       errorCode: "missing_parent_ado_id",
+      errorMessage: `${local.kind} '${local.metadata.localId}' cannot be created — parent has no ADO ID; push the parent first`,
       localId: local.metadata.localId,
     };
   }
@@ -847,6 +856,7 @@ async function executeUpdate(
       action: "update",
       status: "blocked",
       errorCode: "missing_cached_revision",
+      errorMessage: `'${local.metadata.localId}' has no pull baseline — pull this item before pushing`,
       localId: local.metadata.localId,
     };
   }

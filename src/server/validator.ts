@@ -352,10 +352,13 @@ function validateFieldRule(
   if (rule.allowedValues && rule.allowedValues.length > 0) {
     const ok = rule.allowedValues.some((allowed) => allowed === value);
     if (!ok) {
+      const listed = rule.allowedValues.length <= 6
+        ? rule.allowedValues.join(", ")
+        : `${rule.allowedValues.slice(0, 5).join(", ")}, …`;
       issues.push({
         severity: "error",
         code: "invalid_enum_value",
-        message: `Field ${fieldName}=${JSON.stringify(value)} not in allowed values`,
+        message: `Field ${fieldName}=${JSON.stringify(value)} is not an allowed value; allowed: ${listed}`,
         field: `spec.fields.${fieldName}`,
         ...here({ localId }),
       });
