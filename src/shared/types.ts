@@ -154,7 +154,6 @@ export type ConfirmationRequired = "overwrite_yaml" | "change_parent";
 export type ItemOperationResult = {
   localId?: string;
   adoId?: number;
-  title?: string;
   workItemType?: WorkItemType;
   yamlPath?: string;
   yamlDocumentIndex?: number;

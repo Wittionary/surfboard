@@ -397,17 +397,16 @@ export function renderLastOpModal(op: {
 
   const body = problems
     .map((item) => {
-      const titleText = item.title
-        ? (item.title.length > 60 ? item.title.slice(0, 57) + "…" : item.title)
-        : (item.workItemType ?? item.localId ?? "Unknown item");
-      const heading = item.adoId !== undefined
-        ? `${titleText} (ADO #${item.adoId})`
-        : titleText;
+      const idParts: string[] = [];
+      if (item.workItemType) idParts.push(item.workItemType);
+      if (item.localId) idParts.push(item.localId);
+      if (item.adoId !== undefined) idParts.push(`ADO #${item.adoId}`);
+      const idStr = idParts.join(" · ");
       const message = item.errorMessage ?? item.errorCode ?? item.status;
       const fix = longHint(item.errorCode);
       return `<li class="validation-issue">
-  <div class="validation-issue__message">${escape(heading)}</div>
-  <div class="validation-issue__detail">${escape(message)}</div>
+  ${idStr ? `<div class="validation-issue__loc">${escape(idStr)}</div>` : ""}
+  <div class="validation-issue__message">${escape(message)}</div>
   ${fix ? `<div class="validation-issue__fix">→ ${escape(fix)}</div>` : ""}
 </li>`;
     })

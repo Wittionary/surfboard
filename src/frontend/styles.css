@@ -363,13 +363,6 @@ body[data-busy] .child-grid { opacity: 0.6; pointer-events: none; }
 .validation-issue__message {
   color: var(--fail);
   font-size: 13px;
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-
-.validation-issue__detail {
-  font-size: 12px;
-  color: var(--muted);
   margin-bottom: 6px;
 }
 
