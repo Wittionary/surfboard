@@ -3,6 +3,7 @@
 import { buildApp } from "./app.ts";
 import { loadConfig } from "./config.ts";
 import { openDb, type DbHandle } from "./db.ts";
+import { log } from "./logger.ts";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -13,7 +14,7 @@ async function main(): Promise<void> {
       dbHandle = openDb({ workspaceDir: config.workspaceDir });
     } catch (err) {
       // Surface as health=failed; do not abort. Local-only startup must continue.
-      console.error("[surfboard] failed to open SQLite:", err);
+      log.error({ err, workspaceDir: config.workspaceDir }, "failed to open SQLite");
     }
   }
 
@@ -21,9 +22,12 @@ async function main(): Promise<void> {
 
   try {
     await app.listen({ host: config.serverHost, port: config.serverPort });
-    console.log(`[surfboard] listening on http://${config.serverHost}:${config.serverPort}`);
+    log.info(
+      { url: `http://${config.serverHost}:${config.serverPort}`, workspaceDir: config.workspaceDir ?? null },
+      "listening",
+    );
   } catch (err) {
-    console.error("[surfboard] failed to start server:", err);
+    log.error({ err }, "failed to start server");
     process.exit(1);
   }
 }

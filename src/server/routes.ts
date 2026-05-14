@@ -5,6 +5,7 @@
 import type { FastifyInstance } from "fastify";
 import type { AdoClient } from "./adoClient.ts";
 import type { Database } from "bun:sqlite";
+import { childLog } from "./logger.ts";
 import {
   pullParentAndChildren,
   pullSingleItem,
@@ -73,6 +74,22 @@ export type PullRouteDeps = {
   pat?: string;
 };
 
+const log = childLog("sync");
+
+function logOpResult(op: string, result: OperationResult): void {
+  const { success, failure, blocked } = summarizeOpResult(result);
+  const level = result.status === "success" ? "info" : result.status === "failed" ? "error" : "warn";
+  log[level]({ op, status: result.status, success, failure, blocked }, op);
+  for (const item of result.items) {
+    if (item.status === "failed" || item.status === "blocked") {
+      log.warn(
+        { op, localId: item.localId, adoId: item.adoId, status: item.status, errorCode: item.errorCode },
+        item.errorMessage ?? item.errorCode ?? item.status,
+      );
+    }
+  }
+}
+
 export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): void {
   app.post<{ Body: PullAllRequest }>("/api/pull/all", async (req, reply): Promise<OperationResult | undefined> => {
     const body = req.body;
@@ -88,6 +105,7 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
       },
       { selector: body.parent, confirmations: body.confirmations },
     );
+    logOpResult("pull-all", result);
     // Refresh local cache view so subsequent /api/view reflects new YAML.
     deps.workspace.refresh();
     deps.workspace.recordLastSync(summarizeOpResult(result));
@@ -108,6 +126,7 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
       },
       { selector: body.item, confirmation: body.confirmation },
     );
+    logOpResult("pull-item", result);
     deps.workspace.refresh();
     deps.workspace.recordLastSync(summarizeOpResult(result));
     return result;
@@ -132,6 +151,7 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
         confirmedParentChanges: body.confirmedParentChanges,
       },
     );
+    logOpResult("push-all", result);
     deps.workspace.refresh();
     deps.workspace.recordLastSync(summarizeOpResult(result));
     return result;
@@ -154,6 +174,7 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
         confirmedParentChange: body.confirmedParentChange,
       },
     );
+    logOpResult("push-item", result);
     deps.workspace.refresh();
     deps.workspace.recordLastSync(summarizeOpResult(result));
     return result;
