@@ -35,3 +35,14 @@ spec:
       <div>
         This is a new PBI under the witt test feature.
       </div>
+---
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-e75d2232
+spec:
+  parent:
+    localId: feature-221835
+    adoId: 221835
+  fields:
+    System.Title: third test PBI
