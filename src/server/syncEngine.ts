@@ -425,8 +425,9 @@ export async function pushParentAndChildren(
   planSet.push(...targetChildren);
 
   const prevalidationIssues = prevalidate(deps, planSet);
-  if (prevalidationIssues.length > 0) {
-    for (const issue of prevalidationIssues) {
+  const blockingIssues = prevalidationIssues.filter((i) => i.severity === "error");
+  if (blockingIssues.length > 0) {
+    for (const issue of blockingIssues) {
       const result: ItemOperationResult = {
         action: "block",
         status: "blocked",
@@ -712,9 +713,11 @@ function prevalidate(
     issues.push(...docIssues.filter((i) => i.severity === "error"));
   }
 
-  // Cross-document checks (duplicates, hierarchy).
+  // Cross-document checks (duplicates, hierarchy). Only errors block the push;
+  // warnings (e.g. missing parent link) are surfaced via /api/validate but
+  // never stop a push.
   const wsIssues = validateWorkspace(set).issues;
-  issues.push(...wsIssues);
+  issues.push(...wsIssues.filter((i) => i.severity === "error"));
 
   // Push-specific checks.
   for (const item of set) {
@@ -735,10 +738,14 @@ function prevalidate(
     if (!WORK_ITEM_KINDS_REQUIRING_PARENT.includes(item.kind)) continue;
     const parent = item.spec.parent;
     if (!parent || parent.adoId === undefined) {
+      // Warn only — push proceeds and creates the item orphaned in ADO.
+      // executeCreate omits the Hierarchy-Reverse relation when no parent
+      // ADO ID is resolvable; the YAML keeps its localId pointer so a later
+      // pull/push can reattach the hierarchy.
       issues.push({
-        severity: "error",
+        severity: "warning",
         code: "missing_parent_ado_id",
-        message: `${item.kind} '${item.metadata.localId}' has no parent ADO ID — push the parent to ADO first`,
+        message: `${item.kind} '${item.metadata.localId}' has no parent ADO ID — will be created orphaned in ADO; push the parent and re-link later`,
         yamlPath: item.yamlPath,
         yamlDocumentIndex: item.yamlDocumentIndex,
         localId: item.metadata.localId,
@@ -778,16 +785,11 @@ async function executeCreate(
 ): Promise<ItemOperationResult> {
   const { local } = step;
   const parentAdoId = local.spec.parent?.adoId ?? parentLocal.metadata.adoId;
-  if (!parentAdoId) {
-    return {
-      action: "create",
-      status: "blocked",
-      errorCode: "missing_parent_ado_id",
-      errorMessage: `${local.kind} '${local.metadata.localId}' cannot be created — parent has no ADO ID; push the parent first`,
-      localId: local.metadata.localId,
-    };
-  }
-  const parentUrl = workItemUrl(deps.client.organization, parentAdoId);
+  // No parent ADO ID? Create the work item without a Hierarchy-Reverse
+  // relation — it lands orphaned in ADO. The validator already warned via
+  // /api/validate, and the YAML's spec.parent.localId pointer survives so a
+  // future push (once the parent has an ADO ID) can re-link the hierarchy.
+  const parentUrl = parentAdoId ? workItemUrl(deps.client.organization, parentAdoId) : undefined;
   const patch = buildCreatePatch({ item: local, parentUrl });
   let created: AdoWorkItem;
   try {

@@ -457,7 +457,7 @@ export function validateWorkspace(items: readonly LocalWorkItem[]): WorkspaceVal
 
     if (!parent.localId && !parent.adoId) {
       issues.push({
-        severity: "error",
+        severity: "warning",
         code: "missing_parent",
         message: `${item.kind} ${item.metadata.localId} declares spec.parent without localId or adoId`,
         yamlPath: item.yamlPath,
@@ -482,7 +482,7 @@ export function validateWorkspace(items: readonly LocalWorkItem[]): WorkspaceVal
     if (parent.localId && !localParent && !parent.adoId) {
       // Local-only reference that does not resolve and has no remote ID either.
       issues.push({
-        severity: "error",
+        severity: "warning",
         code: "missing_parent",
         message: `${item.kind} ${item.metadata.localId} references parent localId "${parent.localId}" which is not in the workspace and has no spec.parent.adoId`,
         yamlPath: item.yamlPath,

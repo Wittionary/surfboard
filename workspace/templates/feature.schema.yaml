@@ -6,6 +6,8 @@ spec:
   workItemType: Feature
   parentTypes:
     - Epic
+  # System.Title is the only Feature field with no server-side default;
+  # everything else ADO marks "required" is auto-filled on create.
   requiredFields:
     - System.Title
   optionalFields:
@@ -15,11 +17,21 @@ spec:
     - System.IterationPath
     - System.State
     - Microsoft.VSTS.Common.Priority
+    - Microsoft.VSTS.Common.ValueArea
     - Microsoft.VSTS.Common.BusinessValue
+    - Custom.Product
   tags:
     allowed: true
   fieldRules:
+    System.State:
+      type: string
+      allowedValues: [New, "In Progress", Done, Removed]
     Microsoft.VSTS.Common.Priority:
       type: integer
       allowedValues: [1, 2, 3, 4]
+    Microsoft.VSTS.Common.ValueArea:
+      type: string
+      allowedValues: [Architectural, Business]
+    Custom.Product:
+      type: string
   unknownFields: warn

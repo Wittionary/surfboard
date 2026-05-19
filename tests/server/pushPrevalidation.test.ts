@@ -65,8 +65,8 @@ function setupWorkspace(yaml: string): {
 }
 
 describe("push prevalidation — hard blockers", () => {
-  test("blocks when child requires parent ADO ID but local has none", async () => {
-    const { workspaceDir, dbHandle, client } = setupWorkspace(`
+  test("does not block when child has parent localId but no parent ADO ID; child push proceeds (parent ID is resolved from cached parent)", async () => {
+    const { workspaceDir, dbHandle } = setupWorkspace(`
 apiVersion: surfboard.ado/v1
 kind: Feature
 metadata:
@@ -88,12 +88,27 @@ spec:
   fields:
     System.Title: PBI A
 `);
+    // Fake client that accepts a PATCH so the create path runs to completion.
+    const acceptingClient = new AdoClient({
+      organization: "goalliant",
+      project: "Alliant",
+      apiVersion: "7.1",
+      pat: "fake",
+      fetchImpl: ((_u: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        if (init?.method === "PATCH") {
+          return Promise.resolve(
+            new Response(JSON.stringify({ id: 999, rev: 1, fields: {} }), { status: 200 }),
+          );
+        }
+        return Promise.resolve(new Response("{}", { status: 200 }));
+      }) as unknown as typeof fetch,
+    });
     const result = await pushParentAndChildren(
-      { client, db: dbHandle.db, workspaceDir },
+      { client: acceptingClient, db: dbHandle.db, workspaceDir },
       { parent: { localId: "feature-a" } },
     );
-    expect(result.status).toBe("blocked");
-    expect(result.items.some((i) => i.errorCode === "missing_parent_ado_id")).toBe(true);
+    expect(result.status).not.toBe("blocked");
+    expect(result.items.some((i) => i.errorCode === "missing_parent_ado_id")).toBe(false);
   });
 
   test("blocks on missing required field", async () => {

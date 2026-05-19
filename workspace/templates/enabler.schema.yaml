@@ -6,10 +6,14 @@ spec:
   workItemType: Enabler
   parentTypes:
     - Feature
+  # Fields the Alliant ADO process actually blocks a push on. System.Description
+  # and Custom.EnablerType have no server-side default, so they must be set
+  # locally; IterationId / AreaId / State are required but defaulted by ADO.
   requiredFields:
     - System.Title
-  optionalFields:
     - System.Description
+    - Custom.EnablerType
+  optionalFields:
     - System.AssignedTo
     - System.AreaPath
     - System.IterationPath
@@ -21,7 +25,19 @@ spec:
   tags:
     allowed: true
   fieldRules:
+    System.State:
+      type: string
+      allowedValues: [Approved, Committed, Done, New, Removed]
     Microsoft.VSTS.Common.Priority:
       type: integer
       allowedValues: [1, 2, 3, 4]
+    Custom.EnablerType:
+      type: string
+      allowedValues:
+        - Agile Process Improvement
+        - Architectural / Refactor
+        - Exploration / Spike
+        - Infrastructure
+        - Security / Compliance
+        - Tech Debt
   unknownFields: warn

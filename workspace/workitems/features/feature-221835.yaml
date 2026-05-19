@@ -24,25 +24,25 @@ spec:
 apiVersion: surfboard.ado/v1
 kind: PBI
 metadata:
-  localId: pbi-6d089ea9
+  localId: pbi-bb5d68b0
+  adoId: 223293
 spec:
   parent:
     localId: feature-221835
     adoId: 221835
   fields:
-    System.Title: second test PBI
-    System.Description: |
-      <div>
-        This is a new PBI under the witt test feature.
-      </div>
+    System.Title: Updated title
+    Custom.Product: Other
 ---
 apiVersion: surfboard.ado/v1
 kind: PBI
 metadata:
-  localId: pbi-e75d2232
+  localId: pbi-647d49f8
+  adoId: 223294
 spec:
   parent:
     localId: feature-221835
     adoId: 221835
   fields:
-    System.Title: third test PBI
+    System.Title: New PBI
+    Custom.Product: Other

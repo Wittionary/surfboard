@@ -6,8 +6,13 @@ spec:
   workItemType: PBI
   parentTypes:
     - Feature
+  # Fields the Alliant ADO process actually blocks a push on. ADO also lists
+  # System.IterationId / System.AreaId / System.State / Priority / ValueArea
+  # as required, but each has a server-side default and is supplied
+  # automatically — requiring them here would just get in the user's way.
   requiredFields:
     - System.Title
+    - Custom.Product
   optionalFields:
     - System.Description
     - System.AssignedTo
@@ -15,13 +20,22 @@ spec:
     - System.IterationPath
     - System.State
     - Microsoft.VSTS.Common.Priority
+    - Microsoft.VSTS.Common.ValueArea
     - Microsoft.VSTS.Scheduling.Effort
     - Microsoft.VSTS.Common.BusinessValue
     - Microsoft.VSTS.Common.AcceptanceCriteria
   tags:
     allowed: true
   fieldRules:
+    System.State:
+      type: string
+      allowedValues: [Approved, Committed, Done, New, Removed]
     Microsoft.VSTS.Common.Priority:
       type: integer
       allowedValues: [1, 2, 3, 4]
+    Microsoft.VSTS.Common.ValueArea:
+      type: string
+      allowedValues: [Architectural, Business]
+    Custom.Product:
+      type: string
   unknownFields: warn

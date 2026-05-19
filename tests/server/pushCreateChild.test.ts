@@ -189,8 +189,11 @@ spec:
     expect(createdAdoId).toBe(555);
   });
 
-  test("blocks create when parent local has no adoId yet", async () => {
-    // Feature has no adoId — push should not attempt to create child without parent ADO ID.
+  test("creates child orphaned in ADO when parent has no adoId yet (warns but does not block)", async () => {
+    // Feature has no adoId — under MVP scope, parent creation is not auto-pushed.
+    // The PBI is still pushable; ADO accepts it without a Hierarchy-Reverse
+    // link. The validator's missing_parent / missing_parent_ado_id warnings
+    // already surfaced this via /api/validate.
     const { workspaceDir, dbHandle } = setup(`
 apiVersion: surfboard.ado/v1
 kind: Feature
@@ -212,16 +215,24 @@ spec:
   fields:
     System.Title: PBI new
 `);
-    let calls = 0;
+    let createBody: unknown = null;
+    let createdAdoId = 0;
     const c = client((_url, init) => {
-      if (init?.method === "PATCH") calls += 1;
+      if (init?.method === "PATCH") {
+        createBody = JSON.parse(String(init.body));
+        createdAdoId = 777;
+        return new Response(JSON.stringify({ id: 777, rev: 1, fields: {} }), { status: 200 });
+      }
       return new Response("{}", { status: 200 });
     });
     const result = await pushParentAndChildren(
       { client: c, db: dbHandle.db, workspaceDir },
       { parent: { localId: "feature-new" } },
     );
-    expect(result.status).toBe("blocked");
-    expect(calls).toBe(0);
+    expect(result.status).toBe("success");
+    expect(createdAdoId).toBe(777);
+    // Patch must not include a Hierarchy-Reverse relation since parent has no ADO ID.
+    const ops = createBody as Array<{ op: string; path: string }>;
+    expect(ops.some((o) => o.path === "/relations/-")).toBe(false);
   });
 });
