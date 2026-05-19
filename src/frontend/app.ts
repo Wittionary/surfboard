@@ -133,7 +133,10 @@ function applyFooter(model: { lastSync: string; health: string; version: string 
 
 function setBusy(busy: boolean): void {
   document.body.toggleAttribute("data-busy", busy);
+  // Buttons inside a modal (e.g. overwrite-modal's Overwrite/Cancel) must stay
+  // interactive while a pull/push is "busy" awaiting the user's confirmation.
   for (const btn of document.querySelectorAll<HTMLButtonElement>("button[data-action]")) {
+    if (btn.closest("[data-region$='-modal']")) continue;
     btn.disabled = busy;
   }
 }
@@ -198,6 +201,7 @@ function closeValidationModal(): void {
 
 function enableActions(hasParent: boolean): void {
   for (const btn of document.querySelectorAll<HTMLButtonElement>("button[data-action]")) {
+    if (btn.closest("[data-region$='-modal']")) continue;
     const action = btn.dataset.action;
     if (action === "refresh") {
       btn.disabled = false;
