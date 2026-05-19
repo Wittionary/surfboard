@@ -19,11 +19,14 @@ spec:
     - System.AreaPath
     - System.IterationPath
     - System.State
+    - System.Reason
     - Microsoft.VSTS.Common.Priority
     - Microsoft.VSTS.Common.ValueArea
     - Microsoft.VSTS.Scheduling.Effort
     - Microsoft.VSTS.Common.BusinessValue
     - Microsoft.VSTS.Common.AcceptanceCriteria
+    - WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column
+    - WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column.Done
   tags:
     allowed: true
   fieldRules:

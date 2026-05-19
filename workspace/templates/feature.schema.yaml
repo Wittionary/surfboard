@@ -20,6 +20,8 @@ spec:
     - Microsoft.VSTS.Common.ValueArea
     - Microsoft.VSTS.Common.BusinessValue
     - Custom.Product
+    - Custom.BenefitHypothesis
+    - Custom.WSJF
   tags:
     allowed: true
   fieldRules:
@@ -34,4 +36,8 @@ spec:
       allowedValues: [Architectural, Business]
     Custom.Product:
       type: string
+    Custom.BenefitHypothesis:
+      type: string
+    Custom.WSJF:
+      type: integer
   unknownFields: warn
