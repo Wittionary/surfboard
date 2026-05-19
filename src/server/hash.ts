@@ -3,6 +3,7 @@
 // quote style) does not produce false content changes.
 
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import type { LocalWorkItem } from "../shared/types.ts";
 import { SYSTEM_TAGS_FIELD } from "../shared/constants.ts";
 
@@ -10,6 +11,15 @@ export function fileSha256(content: Buffer | string): string {
   const hash = createHash("sha256");
   hash.update(content);
   return hash.digest("hex");
+}
+
+/** SHA-256 of file contents, or undefined when the file is unreadable. */
+export function safeFileHash(path: string): string | undefined {
+  try {
+    return fileSha256(readFileSync(path));
+  } catch {
+    return undefined;
+  }
 }
 
 /**

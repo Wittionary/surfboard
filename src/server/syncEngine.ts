@@ -2,7 +2,7 @@
 // (create-missing in Task 3.6, overwrite confirmation in Task 3.7). Phase 4
 // adds push.
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { Database } from "bun:sqlite";
 import {
@@ -21,7 +21,7 @@ import {
   detectReparent,
   workItemUrl,
 } from "./patchBuilder.ts";
-import { fileSha256 } from "./hash.ts";
+import { safeFileHash } from "./hash.ts";
 import {
   PARENT_MATRIX,
   WORK_ITEM_KINDS_REQUIRING_PARENT,
@@ -275,23 +275,6 @@ type PushPlanItem = {
   /** True when reparenting was detected. */
   isReparent?: boolean;
 };
-
-export type PushBlocker =
-  | "missing_required_field"
-  | "validation_failed"
-  | "missing_cached_revision"
-  | "invalid_parent_type"
-  | "missing_parent"
-  | "missing_parent_ado_id"
-  | "duplicate_local_id"
-  | "duplicate_sibling_title"
-  | "remote_revision_changed"
-  | "remote_deleted"
-  | "yaml_changed_during_push"
-  | "parent_change_unconfirmed"
-  | "create_parent_not_supported"
-  | "yaml_invalid"
-  | "unknown_parent_local_id";
 
 export async function pushParentAndChildren(
   deps: SyncEngineDeps,
@@ -874,14 +857,6 @@ function adoTypeNameForKind(kind: import("../shared/types.ts").WorkItemType): st
       return "Product Backlog Item";
     default:
       return kind;
-  }
-}
-
-function safeFileHash(path: string): string | undefined {
-  try {
-    return fileSha256(readFileSync(path));
-  } catch {
-    return undefined;
   }
 }
 

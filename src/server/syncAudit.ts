@@ -14,7 +14,7 @@ export function auditFor(
   request: unknown,
 ): void {
   const action: AuditAction =
-    result.status === "blocked"
+    result.status === "blocked" || result.status === "requires_confirmation"
       ? "block"
       : result.status === "failed"
         ? "fail"

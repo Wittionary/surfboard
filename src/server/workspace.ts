@@ -3,14 +3,14 @@
 // upserts metadata-only rows into `work_item_cache`. The actual field content
 // stays in YAML.
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import type { Database } from "bun:sqlite";
 import { parseYamlFile, scanWorkspaceFiles } from "./yamlStore.ts";
 import type { ParsedDocument } from "./yamlStore.ts";
 import { loadTemplates, type TemplateLoadResult } from "./templateStore.ts";
 import { validateDocument, validateWorkspace } from "./validator.ts";
 import { upsertWorkItemCache, getAllCached, getCached, deleteCacheEntry } from "./db.ts";
-import { fieldHash, fileSha256, relationHash } from "./hash.ts";
+import { fieldHash, relationHash, safeFileHash } from "./hash.ts";
 import type { ValidationIssue, WorkItemType, SyncStatus, LocalWorkItem } from "../shared/types.ts";
 
 export type WorkspaceDocument = {
@@ -155,14 +155,6 @@ export function indexWorkspaceCache(
 }
 
 export const indexWorkspace = indexWorkspaceCache;
-
-function safeFileHash(path: string): string | undefined {
-  try {
-    return fileSha256(readFileSync(path));
-  } catch {
-    return undefined;
-  }
-}
 
 function deriveSyncStatus(wd: WorkspaceDocument, db: Database): SyncStatus {
   // Phase 2 derives only local statuses. Pull/push add remote_changed,

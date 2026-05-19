@@ -5,7 +5,7 @@ export function emptyOperationSummary(): OperationSummary {
 }
 
 export function rollupStatus(s: { failed: number; blocked: number }): OperationResult["status"] {
-  if (s.failed > 0 && s.failed === s.failed + s.blocked) return "failed";
+  if (s.failed > 0 && s.blocked === 0) return "failed";
   if (s.failed > 0 || s.blocked > 0) return "partial_failure";
   return "success";
 }
