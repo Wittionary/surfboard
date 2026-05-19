@@ -275,13 +275,10 @@ export function renderValidationDetails(
       if (context) {
         parts.push(context.adoId !== undefined ? `ADO #${context.adoId}` : "(ADO ID n/a)");
       }
-      const file = fileBase(issue.yamlPath);
-      if (file) {
-        parts.push(issue.line !== undefined ? `${file}:${issue.line}` : file);
-      }
-      if (issue.yamlDocumentIndex !== undefined) parts.push(`doc ${issue.yamlDocumentIndex + 1}`);
+      if (issue.line !== undefined) parts.push(`Line ${issue.line}`);
       if (issue.field) parts.push(issue.field);
-      const loc = parts.join(" · ");
+      const hasLocPart = issue.line !== undefined || !!issue.field;
+      const loc = hasLocPart ? parts.join(" · ") : "";
       const fix = howToFix(issue.code);
       return `<li class="validation-issue">
   ${loc ? `<div class="validation-issue__loc">${escape(loc)}</div>` : ""}
