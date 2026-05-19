@@ -6,7 +6,7 @@ import {
   renderParentHero,
   validationLabel,
 } from "../../src/frontend/render.ts";
-import type { ParentViewResponse, WorkItemView } from "../../src/server/routes.ts";
+import type { ParentViewResponse, WorkItemView } from "../../src/shared/api.ts";
 
 function child(over: Partial<WorkItemView>): WorkItemView {
   return {

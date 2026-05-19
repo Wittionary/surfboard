@@ -3,11 +3,9 @@
 // popup.
 
 import type {
-  ParentViewResponse,
-  ScaffoldChildResponse,
   WorkItemView,
   WorkspaceStatusResponse,
-} from "../server/routes.ts";
+} from "../shared/api.ts";
 import type {
   HealthReport,
   ItemOperationResult,
@@ -15,6 +13,14 @@ import type {
   PullOverwriteConfirmation,
   ValidationIssue,
 } from "../shared/types.ts";
+import {
+  getHealth,
+  getParentView,
+  getWorkspaceStatus,
+  postJson,
+  refreshWorkspace,
+  scaffoldChild as postScaffoldChild,
+} from "./apiClient.ts";
 import {
   buildConfirmPopup,
   buildLocalViewModel,
@@ -78,30 +84,6 @@ function closeLastOpModal(): void {
   if (modal) modal.hidden = true;
 }
 
-async function loadJson<T>(url: string, init?: RequestInit): Promise<T | null> {
-  try {
-    const res = await fetch(url, init);
-    if (!res.ok) return null;
-    return (await res.json()) as T;
-  } catch {
-    return null;
-  }
-}
-
-async function postJson<T>(url: string, body: unknown): Promise<T | null> {
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as T;
-  } catch {
-    return null;
-  }
-}
-
 function applyParentHero(view: ReturnType<typeof renderParentHero>): void {
   const map: Record<string, string> = {
     type: "kind",
@@ -143,8 +125,8 @@ function setBusy(busy: boolean): void {
 
 async function refresh(): Promise<void> {
   const [status, health] = await Promise.all([
-    postJson<WorkspaceStatusResponse>("/api/workspace/refresh", {}),
-    loadJson<HealthReport>("/api/health"),
+    refreshWorkspace(),
+    getHealth(),
   ]);
   if (status?.workspaceDir) currentWorkspaceDir = status.workspaceDir;
   applyFooter(renderFooter(status, health?.app.status ?? null));
@@ -153,9 +135,7 @@ async function refresh(): Promise<void> {
 
 async function renderParent(localId: string): Promise<void> {
   currentParentLocalId = localId;
-  const parent = await loadJson<ParentViewResponse>(
-    `/api/view/parent/${encodeURIComponent(localId)}`,
-  );
+  const parent = await getParentView(localId);
   const model = buildLocalViewModel(parent);
   currentParentIssues = parent?.parent?.validationIssues ?? [];
   currentParentView = model.parent;
@@ -462,7 +442,7 @@ async function scaffoldChild(): Promise<void> {
   if (!currentParentLocalId) return;
   setBusy(true);
   try {
-    const result = await postJson<ScaffoldChildResponse>("/api/scaffold/child", {
+    const result = await postScaffoldChild({
       parent: { localId: currentParentLocalId },
     });
     if (!result) return;
@@ -605,8 +585,8 @@ function applyAdoAvailability(health: HealthReport | null): void {
 
 export async function bootstrap(): Promise<void> {
   const [status, health] = await Promise.all([
-    loadJson<WorkspaceStatusResponse>("/api/workspace/status"),
-    loadJson<HealthReport>("/api/health"),
+    getWorkspaceStatus(),
+    getHealth(),
   ]);
   if (status?.workspaceDir) currentWorkspaceDir = status.workspaceDir;
   applyFooter(renderFooter(status, health?.app.status ?? null));

@@ -139,6 +139,9 @@ describe("push update — existing items", () => {
       { parent: { localId: "feature-a" }, includeParent: true },
     );
     expect(result.status).toBe("success");
+    expect(result.summary.updated).toBe(2);
+    expect(result.summary.created).toBe(0);
+    expect(result.summary.pulled).toBe(0);
     expect(patchBodies.length).toBe(2);
     for (const body of patchBodies) {
       expect(body[0]).toEqual({ op: "test", path: "/rev", value: 5 });

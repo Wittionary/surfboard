@@ -16,7 +16,7 @@ import {
 import { fieldHash, relationHash } from "../../src/server/hash.ts";
 import { scanWorkspace, indexWorkspace } from "../../src/server/workspace.ts";
 import { parseYamlFile } from "../../src/server/yamlStore.ts";
-import type { ParentViewResponse } from "../../src/server/routes.ts";
+import type { ParentViewResponse } from "../../src/shared/api.ts";
 import type { HealthReport, OperationResult } from "../../src/shared/types.ts";
 
 const FIXTURE_TEMPLATES = resolve(import.meta.dir, "../fixtures/templates");

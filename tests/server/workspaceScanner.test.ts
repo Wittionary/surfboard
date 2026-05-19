@@ -2,8 +2,10 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { openDb, getAllCached, type DbHandle } from "../../src/server/db.ts";
+import { openDb, getAllCached, getCached, updateAcceptedBaseline, type DbHandle } from "../../src/server/db.ts";
+import { fieldHash, relationHash } from "../../src/server/hash.ts";
 import { indexWorkspace, scanWorkspace } from "../../src/server/workspace.ts";
+import { parseYamlFile } from "../../src/server/yamlStore.ts";
 
 const FIXTURE_TEMPLATES = resolve(import.meta.dir, "../fixtures/templates");
 
@@ -248,5 +250,94 @@ spec:
     const cached = getAllCached(dbHandle.db);
     expect(cached.length).toBe(1);
     expect(cached[0]?.syncStatus).toBe("validation_failed");
+  });
+
+  test("duplicate local IDs are attributed to each duplicate document", () => {
+    const { workspaceDir, templateDir } = makeWorkspace();
+    const items = join(workspaceDir, "workitems");
+    mkdirSync(items, { recursive: true });
+    writeFileSync(
+      join(items, "dupes.yaml"),
+      `apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: same-id
+spec:
+  fields:
+    System.Title: A
+---
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: same-id
+spec:
+  fields:
+    System.Title: B
+`,
+      "utf8",
+    );
+
+    const scan = scanWorkspace({ workspaceDir, templateDir });
+    expect(scan.issues.filter((i) => i.code === "duplicate_local_id")).toHaveLength(2);
+    expect(scan.documents[0]?.issues.some((i) => i.code === "duplicate_local_id")).toBe(true);
+    expect(scan.documents[1]?.issues.some((i) => i.code === "duplicate_local_id")).toBe(true);
+  });
+
+  test("indexWorkspace preserves accepted baselines while updating metadata", () => {
+    const { workspaceDir, templateDir } = makeWorkspace();
+    const items = join(workspaceDir, "workitems");
+    mkdirSync(items, { recursive: true });
+    const path = join(items, "p.yaml");
+    writeFileSync(
+      path,
+      `apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-a
+  adoId: 100
+spec:
+  parent:
+    adoId: 50
+  fields:
+    System.Title: First
+`,
+      "utf8",
+    );
+
+    const dbHandle = openDb({ workspaceDir, path: ":memory:" });
+    dbHandles.push(dbHandle);
+    indexWorkspace(dbHandle.db, scanWorkspace({ workspaceDir, templateDir }));
+    const item = parseYamlFile(path)[0]?.content;
+    if (!item) throw new Error("fixture did not parse");
+    updateAcceptedBaseline(dbHandle.db, {
+      localId: "pbi-a",
+      adoId: 100,
+      rev: 7,
+      fieldHash: fieldHash(item),
+      relationHash: relationHash(item),
+      syncStatus: "synced",
+    });
+
+    writeFileSync(
+      path,
+      `apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-a
+  adoId: 100
+spec:
+  parent:
+    adoId: 51
+  fields:
+    System.Title: Second
+`,
+      "utf8",
+    );
+    indexWorkspace(dbHandle.db, scanWorkspace({ workspaceDir, templateDir }));
+
+    const cached = getCached(dbHandle.db, "pbi-a");
+    expect(cached?.lastKnownRev).toBe(7);
+    expect(cached?.parentAdoId).toBe(51);
+    expect(cached?.syncStatus).toBe("local_changed");
   });
 });

@@ -2,10 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import type { InjectPayload, Response as InjectResponse } from "light-my-request";
 import { buildAppHandle } from "../../src/server/app.ts";
 import { loadConfig } from "../../src/server/config.ts";
 import { openDb, type DbHandle } from "../../src/server/db.ts";
-import type { ScaffoldChildResponse } from "../../src/server/routes.ts";
+import type { ScaffoldChildResponse } from "../../src/shared/api.ts";
 
 const FIXTURE_TEMPLATES = resolve(import.meta.dir, "../fixtures/templates");
 
@@ -106,7 +107,10 @@ function setup(): { app: ReturnType<typeof buildAppHandle>["fastify"] } {
   return { app: handle.fastify };
 }
 
-async function post(app: ReturnType<typeof buildAppHandle>["fastify"], body: unknown) {
+async function post(
+  app: ReturnType<typeof buildAppHandle>["fastify"],
+  body: InjectPayload,
+): Promise<InjectResponse> {
   return app.inject({ method: "POST", url: "/api/scaffold/child", payload: body, headers: { "content-type": "application/json" } });
 }
 

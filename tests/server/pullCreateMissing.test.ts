@@ -151,6 +151,9 @@ describe("pullParentAndChildren — create missing", () => {
 
     const skips = second.items.filter((i) => i.action === "skip");
     expect(skips.length).toBe(3);
+    expect(second.summary.pulled).toBe(0);
+    expect(second.summary.created).toBe(0);
+    expect(second.summary.updated).toBe(0);
   });
 
   test("blocks when remote parent is deleted", async () => {

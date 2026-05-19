@@ -7,7 +7,7 @@ import { join, resolve } from "node:path";
 import { buildAppHandle } from "../../src/server/app.ts";
 import { loadConfig } from "../../src/server/config.ts";
 import { openDb, type DbHandle } from "../../src/server/db.ts";
-import type { ValidateResponse } from "../../src/server/routes.ts";
+import type { ValidateResponse } from "../../src/shared/api.ts";
 
 const FIXTURE_TEMPLATES = resolve(import.meta.dir, "../fixtures/templates");
 const tempDirs: string[] = [];

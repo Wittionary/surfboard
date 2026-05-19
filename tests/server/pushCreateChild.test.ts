@@ -126,6 +126,9 @@ spec:
       { parent: { localId: "feature-a" } },
     );
     expect(result.status).toBe("success");
+    expect(result.summary.created).toBe(1);
+    expect(result.summary.updated).toBe(0);
+    expect(result.summary.pulled).toBe(0);
     const created = result.items.find((i) => i.action === "create");
     expect(created?.localId).toBe("pbi-new");
     expect(created?.adoId).toBe(12345);

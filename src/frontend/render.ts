@@ -2,7 +2,7 @@
 // grid rows, and footer summary. Phase 3+ will add pull/push action affordances
 // and status pills for remote-aware sync states.
 
-import type { WorkItemView, WorkspaceStatusResponse, ParentViewResponse } from "../server/routes.ts";
+import type { WorkItemView, WorkspaceStatusResponse, ParentViewResponse } from "../shared/api.ts";
 import type {
   HealthReport,
   ItemOperationResult,

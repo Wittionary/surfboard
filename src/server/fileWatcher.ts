@@ -19,10 +19,15 @@ export type FileWatcherOptions = {
   onChange: () => void | Promise<void>;
   /** Debounce window in ms. Defaults to 250. */
   debounceMs?: number;
+  /** Use polling for file systems that do not emit native events reliably. Defaults to true. */
+  usePolling?: boolean;
+  /** Polling interval in ms when polling is enabled. Defaults to 100. */
+  pollingIntervalMs?: number;
 };
 
 export class FileWatcher {
   private watcher: FSWatcher | null = null;
+  private readyPromise: Promise<void> | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private _status: FileWatcherStatus;
 
@@ -34,14 +39,16 @@ export class FileWatcher {
     return { ...this._status };
   }
 
-  start(): void {
-    if (this.watcher) return;
+  start(): Promise<void> {
+    if (this.watcher) return this.readyPromise ?? Promise.resolve();
     try {
       const paths = this.computePaths();
       this.watcher = watch(paths, {
         ignoreInitial: true,
         ignored: (path: string) => path.includes(`${"/"}.surfboard${"/"}`) || path.endsWith(".surfboard"),
         persistent: true,
+        usePolling: this.options.usePolling ?? true,
+        interval: this.options.pollingIntervalMs ?? 100,
       });
       const trigger = (): void => {
         this._status.lastEventAt = new Date().toISOString();
@@ -55,15 +62,21 @@ export class FileWatcher {
         }, delay);
       };
       this.watcher.on("add", trigger).on("change", trigger).on("unlink", trigger);
+      this.readyPromise = new Promise((resolve) => {
+        this.watcher?.once("ready", resolve);
+      });
       this.watcher.on("error", (err: unknown) => {
         this._status.error = err instanceof Error ? err.message : String(err);
         this._status.active = false;
       });
       this._status.active = true;
       this._status.error = undefined;
+      return this.readyPromise;
     } catch (err) {
       this._status.active = false;
       this._status.error = err instanceof Error ? err.message : String(err);
+      this.readyPromise = Promise.resolve();
+      return this.readyPromise;
     }
   }
 
@@ -76,6 +89,7 @@ export class FileWatcher {
       await this.watcher.close();
       this.watcher = null;
     }
+    this.readyPromise = null;
     this._status.active = false;
   }
 

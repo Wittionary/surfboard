@@ -56,11 +56,8 @@ describe("FileWatcher", () => {
       debounceMs: 80,
     });
     watchers.push(w);
-    w.start();
+    await w.start();
     expect(w.status.active).toBe(true);
-
-    // Wait briefly for chokidar to attach watchers in the empty directory.
-    await wait(150);
 
     const path = join(workspaceDir, "a.yaml");
     writeFileSync(path, "x: 1\n", "utf8");
@@ -84,8 +81,7 @@ describe("FileWatcher", () => {
       debounceMs: 50,
     });
     watchers.push(w);
-    w.start();
-    await wait(150);
+    await w.start();
 
     writeFileSync(join(workspaceDir, "a.yaml"), "a: 1\n", "utf8");
     await wait(200);
@@ -121,8 +117,8 @@ describe("FileWatcher", () => {
     let res = await handle.fastify.inject({ method: "GET", url: "/api/workspace/status" });
     expect(JSON.parse(res.body).documentCount).toBe(0);
 
-    // Add a YAML file. The watcher should re-scan.
-    await wait(150);
+    // Add a YAML file after chokidar reports readiness. The watcher should re-scan.
+    await handle.watcher?.start();
     writeFileSync(
       join(items, "p.yaml"),
       `apiVersion: surfboard.ado/v1
@@ -165,6 +161,7 @@ spec:
       startWatcher: true,
     });
     if (handle.watcher) watchers.push(handle.watcher);
+    await handle.watcher?.start();
 
     const res = await handle.fastify.inject({ method: "GET", url: "/api/health" });
     const body = JSON.parse(res.body);

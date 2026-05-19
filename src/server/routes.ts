@@ -22,45 +22,21 @@ import type {
   PushAllRequest,
   PushItemRequest,
   ValidateRequest,
-  ValidationIssue,
   WorkItemType,
 } from "../shared/types.ts";
+import type {
+  ParentViewResponse,
+  ScaffoldChildRequest,
+  ScaffoldChildResponse,
+  ValidateResponse,
+  WorkItemView,
+  WorkspaceStatusResponse,
+} from "../shared/api.ts";
 import { PARENT_MATRIX, SYSTEM_STATE_FIELD, SYSTEM_TITLE_FIELD } from "../shared/constants.ts";
 import { appendDocument, findIssueLine } from "./yamlStore.ts";
 import { upsertWorkItemCache } from "./db.ts";
-
-export type WorkspaceStatusResponse = {
-  workspaceDir: string;
-  templateDir: string;
-  refreshedAt: string;
-  documentCount: number;
-  validItemCount: number;
-  issueCounts: Record<string, number>;
-};
-
-export type ValidateResponse = {
-  scope: ValidateRequest["scope"];
-  itemCount: number;
-  issues: ValidationIssue[];
-};
-
-export type WorkItemView = {
-  localId: string;
-  adoId?: number;
-  workItemType: WorkItemType;
-  title?: string;
-  state?: string;
-  yamlPath: string;
-  yamlDocumentIndex: number;
-  parentLocalId?: string;
-  parentAdoId?: number;
-  validationIssues: ValidationIssue[];
-};
-
-export type ParentViewResponse = {
-  parent: WorkItemView;
-  children: WorkItemView[];
-};
+import { findDirectChildDocuments, findDocumentBySelector, matchesSelector } from "./workItemRefs.ts";
+import { summarizeOperationResult } from "./syncResult.ts";
 
 export type RouteDeps = {
   workspace: WorkspaceState;
@@ -77,7 +53,7 @@ export type PullRouteDeps = {
 const log = childLog("sync");
 
 function logOpResult(op: string, result: OperationResult): void {
-  const { success, failure, blocked } = summarizeOpResult(result);
+  const { success, failure, blocked } = summarizeOperationResult(result);
   const level = result.status === "success" ? "info" : result.status === "failed" ? "error" : "warn";
   log[level]({ op, status: result.status, success, failure, blocked }, op);
   for (const item of result.items) {
@@ -93,7 +69,7 @@ function logOpResult(op: string, result: OperationResult): void {
 export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): void {
   app.post<{ Body: PullAllRequest }>("/api/pull/all", async (req, reply): Promise<OperationResult | undefined> => {
     const body = req.body;
-    if (!body || (body.parent.localId === undefined && body.parent.adoId === undefined)) {
+    if (!body || !hasSelector(body.parent)) {
       return reply.code(400).send({ error: "parent selector required (localId or adoId)" });
     }
     const result = await pullParentAndChildren(
@@ -109,13 +85,13 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
     logOpResult("pull-all", enriched);
     // Refresh local cache view so subsequent /api/view reflects new YAML.
     deps.workspace.refresh();
-    deps.workspace.recordLastSync(summarizeOpResult(enriched));
+    deps.workspace.recordLastSync(summarizeOperationResult(enriched));
     return enriched;
   });
 
   app.post<{ Body: PullItemRequest }>("/api/pull/item", async (req, reply): Promise<OperationResult | undefined> => {
     const body = req.body;
-    if (!body || (body.item.localId === undefined && body.item.adoId === undefined)) {
+    if (!body || !hasSelector(body.item)) {
       return reply.code(400).send({ error: "item selector required (localId or adoId)" });
     }
     const result = await pullSingleItem(
@@ -130,13 +106,13 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
     const enriched = enrichWithTitles(result, deps.workspace);
     logOpResult("pull-item", enriched);
     deps.workspace.refresh();
-    deps.workspace.recordLastSync(summarizeOpResult(enriched));
+    deps.workspace.recordLastSync(summarizeOperationResult(enriched));
     return enriched;
   });
 
   app.post<{ Body: PushAllRequest }>("/api/push/all", async (req, reply): Promise<OperationResult | undefined> => {
     const body = req.body;
-    if (!body || (body.parent.localId === undefined && body.parent.adoId === undefined)) {
+    if (!body || !hasSelector(body.parent)) {
       return reply.code(400).send({ error: "parent selector required (localId or adoId)" });
     }
     const result = await pushParentAndChildren(
@@ -156,13 +132,13 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
     const enriched = enrichWithTitles(result, deps.workspace);
     logOpResult("push-all", enriched);
     deps.workspace.refresh();
-    deps.workspace.recordLastSync(summarizeOpResult(enriched));
+    deps.workspace.recordLastSync(summarizeOperationResult(enriched));
     return enriched;
   });
 
   app.post<{ Body: PushItemRequest }>("/api/push/item", async (req, reply): Promise<OperationResult | undefined> => {
     const body = req.body;
-    if (!body || (body.item.localId === undefined && body.item.adoId === undefined)) {
+    if (!body || !hasSelector(body.item)) {
       return reply.code(400).send({ error: "item selector required (localId or adoId)" });
     }
     const result = await pushSingleItem(
@@ -180,7 +156,7 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
     const enriched = enrichWithTitles(result, deps.workspace);
     logOpResult("push-item", enriched);
     deps.workspace.refresh();
-    deps.workspace.recordLastSync(summarizeOpResult(enriched));
+    deps.workspace.recordLastSync(summarizeOperationResult(enriched));
     return enriched;
   });
 }
@@ -192,8 +168,7 @@ export type AuditRouteDeps = {
 export function registerAuditRoutes(app: FastifyInstance, deps: AuditRouteDeps): void {
   app.get<{ Querystring: { limit?: string } }>("/api/audit/recent", async (req) => {
     const { getRecentAudit } = await import("./audit.ts");
-    const limit = req.query.limit ? Number.parseInt(req.query.limit, 10) : 50;
-    return { items: getRecentAudit(deps.db, Number.isFinite(limit) ? limit : 50) };
+    return { items: getRecentAudit(deps.db, parseLimit(req.query.limit)) };
   });
   app.get<{ Params: { localId: string }; Querystring: { limit?: string } }>(
     "/api/audit/item/:localId",
@@ -201,8 +176,7 @@ export function registerAuditRoutes(app: FastifyInstance, deps: AuditRouteDeps):
       const localId = req.params.localId;
       if (!localId) return reply.code(400).send({ error: "localId required" });
       const { getAuditByLocalId } = await import("./audit.ts");
-      const limit = req.query.limit ? Number.parseInt(req.query.limit, 10) : 50;
-      return { items: getAuditByLocalId(deps.db, localId, Number.isFinite(limit) ? limit : 50) };
+      return { items: getAuditByLocalId(deps.db, localId, parseLimit(req.query.limit)) };
     },
   );
 }
@@ -260,22 +234,12 @@ export function registerLocalRoutes(app: FastifyInstance, deps: RouteDeps): void
       const localId = req.params.localId;
       const snapshot = deps.workspace.current();
       const docs = snapshot.scan.documents;
-      const parentDoc = docs.find((d) => d.item?.metadata.localId === localId);
+      const parentDoc = findDocumentBySelector(docs, { localId });
       if (!parentDoc?.item) {
         return reply.code(404).send({ error: `parent ${localId} not found` });
       }
       const parent = parentDoc.item;
-      const children = docs
-        .filter((d) => {
-          const parentRef = d.item?.spec.parent;
-          if (!parentRef) return false;
-          if (parentRef.localId === parent.metadata.localId) return true;
-          if (parent.metadata.adoId !== undefined && parentRef.adoId === parent.metadata.adoId) {
-            return true;
-          }
-          return false;
-        })
-        .map((d) => toView(d));
+      const children = findDirectChildDocuments(docs, parent).map((d) => toView(d));
       return {
         parent: toView(parentDoc),
         children,
@@ -295,28 +259,10 @@ function filterDocumentsForValidate(
   }
   // "displayed" — like parent view: include parent + direct children.
   const parentSel = body.parent ?? {};
-  const parent = documents.find((d) => matchesSelector(d.item, parentSel));
+  const parent = findDocumentBySelector(documents, parentSel);
   if (!parent?.item) return [];
-  const children = documents.filter((d) => {
-    const ref = d.item?.spec.parent;
-    if (!ref) return false;
-    if (parent.item && ref.localId === parent.item.metadata.localId) return true;
-    if (parent.item?.metadata.adoId !== undefined && ref.adoId === parent.item.metadata.adoId) {
-      return true;
-    }
-    return false;
-  });
+  const children = findDirectChildDocuments(documents, parent.item);
   return [parent, ...children];
-}
-
-function matchesSelector(
-  item: LocalWorkItem | undefined,
-  selector: { localId?: string; adoId?: number },
-): boolean {
-  if (!item) return false;
-  if (selector.localId !== undefined && item.metadata.localId === selector.localId) return true;
-  if (selector.adoId !== undefined && item.metadata.adoId === selector.adoId) return true;
-  return false;
 }
 
 function toView(wd: WorkspaceDocument): WorkItemView {
@@ -355,18 +301,6 @@ function toView(wd: WorkspaceDocument): WorkItemView {
   };
 }
 
-function summarizeOpResult(result: OperationResult): { success: number; failure: number; blocked: number } {
-  let success = 0;
-  let failure = 0;
-  let blocked = 0;
-  for (const item of result.items) {
-    if (item.status === "success") success += 1;
-    else if (item.status === "failed") failure += 1;
-    else if (item.status === "blocked" || item.status === "requires_confirmation") blocked += 1;
-  }
-  return { success, failure, blocked };
-}
-
 /** Stamps `title` onto each ItemOperationResult using the current workspace scan. */
 function enrichWithTitles(result: OperationResult, workspace: WorkspaceState): OperationResult {
   const titleByLocalId = new Map<string, string>();
@@ -397,30 +331,17 @@ export type ScaffoldRouteDeps = {
   db: Database;
 };
 
-export type ScaffoldChildResponse = {
-  localId: string;
-  workItemType: WorkItemType;
-  yamlPath: string;
-  yamlDocumentIndex: number;
-};
-
 export function registerScaffoldRoutes(app: FastifyInstance, deps: ScaffoldRouteDeps): void {
-  app.post<{ Body: { parent: { localId?: string; adoId?: number } } }>(
+  app.post<{ Body: ScaffoldChildRequest }>(
     "/api/scaffold/child",
     async (req, reply): Promise<ScaffoldChildResponse | undefined> => {
       const body = req.body;
-      if (!body?.parent || (body.parent.localId === undefined && body.parent.adoId === undefined)) {
+      if (!body?.parent || !hasSelector(body.parent)) {
         return reply.code(400).send({ error: "parent selector required (localId or adoId)" });
       }
 
       const snapshot = deps.workspace.current();
-      const parentDoc = snapshot.scan.documents.find((d) => {
-        const item = d.item;
-        if (!item) return false;
-        if (body.parent.localId !== undefined && item.metadata.localId === body.parent.localId) return true;
-        if (body.parent.adoId !== undefined && item.metadata.adoId === body.parent.adoId) return true;
-        return false;
-      });
+      const parentDoc = findDocumentBySelector(snapshot.scan.documents, body.parent);
 
       if (!parentDoc?.item) {
         return reply.code(404).send({ error: "parent not found in workspace" });
@@ -466,6 +387,15 @@ export function registerScaffoldRoutes(app: FastifyInstance, deps: ScaffoldRoute
       return { localId, workItemType: childType, yamlPath: parentItem.yamlPath, yamlDocumentIndex: docIndex };
     },
   );
+}
+
+function hasSelector(selector: { localId?: string; adoId?: number } | undefined): boolean {
+  return selector !== undefined && (selector.localId !== undefined || selector.adoId !== undefined);
+}
+
+function parseLimit(value: string | undefined): number {
+  const parsed = value ? Number.parseInt(value, 10) : 50;
+  return Number.isFinite(parsed) ? parsed : 50;
 }
 
 function summarizeStatus(snapshot: ReturnType<WorkspaceState["current"]>): WorkspaceStatusResponse {

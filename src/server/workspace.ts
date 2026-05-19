@@ -36,25 +36,49 @@ export type WorkspaceScanOptions = {
 export function scanWorkspace(options: WorkspaceScanOptions): WorkspaceScanResult {
   const templates = loadTemplates(options.templateDir);
   const issues: ValidationIssue[] = [...templates.issues];
-  const documents: WorkspaceDocument[] = [];
 
   if (!options.workspaceDir || !existsSync(options.workspaceDir)) {
     return {
       workspaceDir: options.workspaceDir,
       templates,
-      documents,
+      documents: [],
       issues,
     };
   }
 
+  const parsed = discoverWorkspaceDocuments(options);
+  const validated = validateWorkspaceDocuments(parsed, templates);
+  issues.push(...validated.issues);
+
+  return {
+    workspaceDir: options.workspaceDir,
+    templates,
+    documents: validated.documents,
+    issues,
+  };
+}
+
+export function discoverWorkspaceDocuments(options: WorkspaceScanOptions): ParsedDocument[] {
+  if (!options.workspaceDir || !existsSync(options.workspaceDir)) return [];
+  const documents: ParsedDocument[] = [];
   const files = scanWorkspaceFiles(options.workspaceDir, { excludeDir: options.templateDir });
   for (const file of files) {
-    const docs = parseYamlFile(file.path);
-    for (const doc of docs) {
-      const docIssues = validateDocument(doc, { templates });
-      documents.push({ doc, item: doc.content, issues: docIssues });
-      issues.push(...docIssues);
-    }
+    documents.push(...parseYamlFile(file.path));
+  }
+  return documents;
+}
+
+export function validateWorkspaceDocuments(
+  docs: readonly ParsedDocument[],
+  templates: TemplateLoadResult,
+): { documents: WorkspaceDocument[]; issues: ValidationIssue[] } {
+  const issues: ValidationIssue[] = [];
+  const documents: WorkspaceDocument[] = [];
+
+  for (const doc of docs) {
+    const docIssues = validateDocument(doc, { templates });
+    documents.push({ doc, item: doc.content, issues: docIssues });
+    issues.push(...docIssues);
   }
 
   // Cross-document checks: parent matrix, missing parent, duplicate localId,
@@ -67,19 +91,16 @@ export function scanWorkspace(options: WorkspaceScanOptions): WorkspaceScanResul
   // Attribute workspace-level issues back to their documents so callers can
   // group results by file/document.
   for (const issue of workspaceIssues) {
-    const target = issue.localId
+    const target = documents.find((d) =>
+      d.doc.path === issue.yamlPath && d.doc.documentIndex === issue.yamlDocumentIndex,
+    ) ?? (issue.localId
       ? documents.find((d) => d.item?.metadata.localId === issue.localId)
-      : undefined;
+      : undefined);
     if (target) target.issues.push(issue);
   }
   issues.push(...workspaceIssues);
 
-  return {
-    workspaceDir: options.workspaceDir,
-    templates,
-    documents,
-    issues,
-  };
+  return { documents, issues };
 }
 
 export type IndexWorkspaceOptions = {
@@ -92,7 +113,7 @@ export type IndexWorkspaceOptions = {
  * and pruned. Only valid (well-shaped) documents are upserted; invalid ones
  * still appear in the scan result so the UI can show their issues.
  */
-export function indexWorkspace(
+export function indexWorkspaceCache(
   db: Database,
   scan: WorkspaceScanResult,
   options: IndexWorkspaceOptions = {},
@@ -132,6 +153,8 @@ export function indexWorkspace(
 
   return { upserted, pruned };
 }
+
+export const indexWorkspace = indexWorkspaceCache;
 
 function safeFileHash(path: string): string | undefined {
   try {

@@ -8,7 +8,6 @@ import type { Database } from "bun:sqlite";
 import {
   AdoError,
   getDirectChildren,
-  getUpdates,
   getWorkItem,
   getWorkItems,
   isDeletedWorkItem,
@@ -24,12 +23,11 @@ import {
 } from "./patchBuilder.ts";
 import { fileSha256 } from "./hash.ts";
 import {
-  HIERARCHY_REVERSE_REL,
   PARENT_MATRIX,
   WORK_ITEM_KINDS_REQUIRING_PARENT,
 } from "../shared/constants.ts";
 import { parseYamlFile } from "./yamlStore.ts";
-import type { SyncStatus, ValidationIssue } from "../shared/types.ts";
+import type { ValidationIssue } from "../shared/types.ts";
 import { validateDocument, validateWorkspace } from "./validator.ts";
 import { loadTemplates } from "./templateStore.ts";
 import {
@@ -41,8 +39,18 @@ import {
   upsertWorkItemCache,
 } from "./db.ts";
 import { fieldHash, relationHash } from "./hash.ts";
-import { writeAuditEntry, type AuditAction } from "./audit.ts";
 import { appendDocument, writeDocument } from "./yamlStore.ts";
+import { auditFor } from "./syncAudit.ts";
+import {
+  emptyOperationSummary,
+  rollupStatus,
+  tallyPullSummary,
+  tallyPushSummary,
+} from "./syncResult.ts";
+import {
+  buildLocalIdLookup as buildLocalIdLookupFromCache,
+  referencesParent,
+} from "./workItemRefs.ts";
 import type {
   ItemOperationResult,
   LocalWorkItem,
@@ -59,6 +67,8 @@ const KIND_DIR: Record<WorkItemType, string> = {
   Enabler: "enablers",
   Task: "tasks",
 };
+
+export { probeRemoteRev, refreshRemoteStatus, type RemoteDiagnostic } from "./remoteStatus.ts";
 
 export type SyncEngineDeps = {
   client: AdoClient;
@@ -87,7 +97,7 @@ export async function pullParentAndChildren(
 ): Promise<OperationResult> {
   const operationId = crypto.randomUUID();
   const items: ItemOperationResult[] = [];
-  const summary = { validated: 0, created: 0, updated: 0, pulled: 0, blocked: 0, failed: 0 };
+  const summary = emptyOperationSummary();
 
   let parent: AdoWorkItem;
   try {
@@ -121,10 +131,10 @@ export async function pullParentAndChildren(
     return { operationId, status: "blocked", summary, items };
   }
 
-  const localIdByAdoId = buildLocalIdLookup(deps.db);
+  const localIdByAdoId = buildLocalIdLookupFromCache(getAllCached(deps.db));
   const parentResult = pullSingle(deps, parent, localIdByAdoId, input.confirmations ?? []);
   items.push(parentResult);
-  tallySummary(summary, parentResult);
+  tallyPullSummary(summary, parentResult);
   auditFor(deps, operationId, parentResult, input);
 
   // Update lookup so children that reference this parent get the parent.localId.
@@ -165,7 +175,7 @@ export async function pullParentAndChildren(
     }
     const childResult = pullSingle(deps, child, localIdByAdoId, input.confirmations ?? []);
     items.push(childResult);
-    tallySummary(summary, childResult);
+    tallyPullSummary(summary, childResult);
     auditFor(deps, operationId, childResult, input);
   }
 
@@ -186,7 +196,7 @@ export async function pullSingleItem(
 ): Promise<OperationResult> {
   const operationId = crypto.randomUUID();
   const items: ItemOperationResult[] = [];
-  const summary = { validated: 0, created: 0, updated: 0, pulled: 0, blocked: 0, failed: 0 };
+  const summary = emptyOperationSummary();
 
   let remote: AdoWorkItem;
   try {
@@ -223,72 +233,13 @@ export async function pullSingleItem(
   const result = pullSingle(
     deps,
     remote,
-    buildLocalIdLookup(deps.db),
+    buildLocalIdLookupFromCache(getAllCached(deps.db)),
     input.confirmation ? [input.confirmation] : [],
   );
   items.push(result);
-  tallySummary(summary, result);
+  tallyPullSummary(summary, result);
   auditFor(deps, operationId, result, input);
   return { operationId, status: rollupStatus(summary), summary, items };
-}
-
-function auditFor(
-  deps: SyncEngineDeps,
-  operationId: string,
-  result: ItemOperationResult,
-  request: unknown,
-): void {
-  const action: AuditAction =
-    result.status === "blocked"
-      ? "block"
-      : result.status === "failed"
-        ? "fail"
-        : result.action === "create"
-          ? "create"
-          : result.action === "update"
-            ? "update"
-            : result.action === "skip"
-              ? "skip"
-              : "pull";
-  writeAuditEntry(
-    deps.db,
-    {
-      operationId,
-      action,
-      localId: result.localId,
-      adoId: result.adoId,
-      workItemType: result.workItemType,
-      yamlPath: result.yamlPath,
-      beforeRev: result.beforeRev ?? result.cachedRev,
-      afterRev: result.afterRev ?? result.remoteRev,
-      success: result.status === "success",
-      errorCode: result.errorCode,
-      errorMessage: result.errorMessage,
-      requestSummary: redactRequestForAudit(request),
-      responseSummary: {
-        action: result.action,
-        status: result.status,
-        confirmationRequired: result.confirmationRequired,
-        syncStatus: result.syncStatus,
-        cachedRev: result.cachedRev,
-        remoteRev: result.remoteRev,
-      },
-    },
-    { pat: deps.pat },
-  );
-}
-
-function redactRequestForAudit(request: unknown): unknown {
-  const r = request as Record<string, unknown>;
-  return {
-    parent: r.parent,
-    selector: r.selector,
-    confirmationCount: Array.isArray(r.confirmations) ? r.confirmations.length : undefined,
-    confirmation: "confirmation" in r ? Boolean(r.confirmation) : undefined,
-    childLocalIds: r.childLocalIds,
-    confirmedParentChanges: r.confirmedParentChanges,
-    confirmedParentChange: r.confirmedParentChange,
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -348,7 +299,7 @@ export async function pushParentAndChildren(
 ): Promise<OperationResult> {
   const operationId = crypto.randomUUID();
   const items: ItemOperationResult[] = [];
-  const summary = { validated: 0, created: 0, updated: 0, pulled: 0, blocked: 0, failed: 0 };
+  const summary = emptyOperationSummary();
 
   // Collect candidate documents from the workspace.
   const allDocs = parseAllWorkspaceDocs(deps);
@@ -591,7 +542,7 @@ export async function pushParentAndChildren(
     if (step.intent === "create") {
       const result = await executeCreate(deps, step, parentLocal);
       items.push(result);
-      tallySummary(summary, result);
+      tallyPushSummary(summary, result);
       auditFor(deps, operationId, result, input);
       if (result.status !== "success") {
         return { operationId, status: "partial_failure", summary, items };
@@ -601,7 +552,7 @@ export async function pushParentAndChildren(
       if (!remote) continue; // shouldn't happen; we'd have blocked above.
       const result = await executeUpdate(deps, step, remote);
       items.push(result);
-      tallySummary(summary, result);
+      tallyPushSummary(summary, result);
       auditFor(deps, operationId, result, input);
       if (result.status !== "success") {
         return { operationId, status: "partial_failure", summary, items };
@@ -664,14 +615,6 @@ function parseAllWorkspaceDocs(deps: SyncEngineDeps): ReturnType<typeof parseYam
     docs.push(...parseYamlFile(c.yamlPath));
   }
   return docs;
-}
-
-function referencesParent(child: LocalWorkItem, parent: LocalWorkItem): boolean {
-  const ref = child.spec.parent;
-  if (!ref) return false;
-  if (ref.localId === parent.metadata.localId) return true;
-  if (parent.metadata.adoId !== undefined && ref.adoId === parent.metadata.adoId) return true;
-  return false;
 }
 
 function resolveLocalForSelector(
@@ -942,31 +885,6 @@ function safeFileHash(path: string): string | undefined {
   }
 }
 
-function rollupStatus(s: { failed: number; blocked: number }): OperationResult["status"] {
-  if (s.failed > 0 && s.failed === blockedAndFailed(s)) return "failed";
-  if (s.failed > 0 || s.blocked > 0) return "partial_failure";
-  return "success";
-}
-
-function blockedAndFailed(s: { failed: number; blocked: number }): number {
-  return s.failed + s.blocked;
-}
-
-function tallySummary(
-  summary: OperationResult["summary"],
-  result: ItemOperationResult,
-): void {
-  if (result.status === "success") {
-    if (result.action === "pull" || result.action === "create" || result.action === "update") {
-      summary.pulled += 1;
-    }
-  } else if (result.status === "blocked" || result.status === "requires_confirmation") {
-    summary.blocked += 1;
-  } else if (result.status === "failed") {
-    summary.failed += 1;
-  }
-}
-
 async function resolveParent(deps: SyncEngineDeps, selector: WorkItemSelector): Promise<AdoWorkItem> {
   if (selector.adoId !== undefined) {
     return getWorkItem(deps.client, selector.adoId);
@@ -979,14 +897,6 @@ async function resolveParent(deps: SyncEngineDeps, selector: WorkItemSelector): 
     return getWorkItem(deps.client, cached.adoId);
   }
   throw new Error("Pull selector requires localId or adoId");
-}
-
-function buildLocalIdLookup(db: Database): Map<number, string> {
-  const map = new Map<number, string>();
-  for (const c of getAllCached(db)) {
-    if (c.adoId !== undefined) map.set(c.adoId, c.localId);
-  }
-  return map;
 }
 
 /**
@@ -1188,160 +1098,3 @@ function pickYamlPath(workspaceDir: string, item: LocalWorkItem): string {
   }
   return candidate;
 }
-
-/**
- * Returns the current rev that ADO reports for the given remote item.
- * Convenience wrapper used by routes that want to refresh status without
- * pulling.
- */
-export async function probeRemoteRev(
-  deps: Pick<SyncEngineDeps, "client">,
-  adoId: number,
-): Promise<{ rev: number; deleted: boolean }> {
-  const item = await getWorkItem(deps.client, adoId);
-  return { rev: item.rev, deleted: isDeletedWorkItem(item) };
-}
-
-export type RemoteDiagnostic = {
-  localId: string;
-  adoId: number;
-  cachedRev: number | undefined;
-  remoteRev: number | undefined;
-  syncStatus: SyncStatus;
-  changedFields?: string[];
-  deleted?: boolean;
-  error?: string;
-};
-
-/**
- * Probes ADO for every cached item (or a filtered subset) and records the
- * observed remote revision per spec §13. Does not modify YAML or the accepted
- * baseline. Returns a diagnostics array the UI can render to show drift.
- */
-export async function refreshRemoteStatus(
-  deps: SyncEngineDeps,
-  options: { localIds?: readonly string[] } = {},
-): Promise<RemoteDiagnostic[]> {
-  const cached = getAllCached(deps.db).filter((c) => c.adoId !== undefined);
-  const filtered = options.localIds && options.localIds.length > 0
-    ? cached.filter((c) => options.localIds!.includes(c.localId))
-    : cached;
-  if (filtered.length === 0) return [];
-
-  const ids = filtered.map((c) => c.adoId as number);
-  let remotes: AdoWorkItem[];
-  try {
-    remotes = await getWorkItems(deps.client, ids);
-  } catch (err) {
-    return filtered.map((c) => ({
-      localId: c.localId,
-      adoId: c.adoId as number,
-      cachedRev: c.lastKnownRev,
-      remoteRev: undefined,
-      syncStatus: c.syncStatus,
-      error: err instanceof Error ? err.message : String(err),
-    }));
-  }
-  const remoteById = new Map<number, AdoWorkItem>();
-  for (const r of remotes) remoteById.set(r.id, r);
-
-  const out: RemoteDiagnostic[] = [];
-  for (const c of filtered) {
-    const remote = remoteById.get(c.adoId as number);
-    if (!remote || isDeletedWorkItem(remote)) {
-      updateRemoteObserved(deps.db, {
-        localId: c.localId,
-        remoteRev: c.lastKnownRev ?? 0,
-        syncStatus: "deleted_remotely",
-      });
-      out.push({
-        localId: c.localId,
-        adoId: c.adoId as number,
-        cachedRev: c.lastKnownRev,
-        remoteRev: undefined,
-        syncStatus: "deleted_remotely",
-        deleted: true,
-      });
-      continue;
-    }
-    if (c.lastKnownRev === undefined) {
-      out.push({
-        localId: c.localId,
-        adoId: c.adoId as number,
-        cachedRev: undefined,
-        remoteRev: remote.rev,
-        syncStatus: c.syncStatus,
-      });
-      continue;
-    }
-    if (remote.rev !== c.lastKnownRev) {
-      const changedFields = await summarizeChangedFields(
-        deps,
-        c.adoId as number,
-        c.lastKnownRev,
-      );
-      updateRemoteObserved(deps.db, {
-        localId: c.localId,
-        remoteRev: remote.rev,
-        syncStatus: "remote_changed",
-      });
-      out.push({
-        localId: c.localId,
-        adoId: c.adoId as number,
-        cachedRev: c.lastKnownRev,
-        remoteRev: remote.rev,
-        syncStatus: "remote_changed",
-        changedFields,
-      });
-      continue;
-    }
-    // No change — leave row alone but report.
-    out.push({
-      localId: c.localId,
-      adoId: c.adoId as number,
-      cachedRev: c.lastKnownRev,
-      remoteRev: remote.rev,
-      syncStatus: "synced",
-    });
-  }
-  return out;
-}
-
-const DIAG_FIELDS = new Set([
-  "System.Title",
-  "System.State",
-  "System.Parent",
-  "System.Description",
-  "System.Tags",
-]);
-
-async function summarizeChangedFields(
-  deps: SyncEngineDeps,
-  adoId: number,
-  sinceRev: number,
-): Promise<string[]> {
-  try {
-    const updates = await getUpdates(deps.client, adoId);
-    const since = updates.filter((u) => u.rev > sinceRev);
-    const changed = new Set<string>();
-    for (const u of since) {
-      const fields = u.fields ?? {};
-      for (const name of Object.keys(fields)) {
-        if (DIAG_FIELDS.has(name)) changed.add(name);
-      }
-      if (u.relations) {
-        const touched = (u.relations.added ?? []).concat(
-          u.relations.removed ?? [],
-          u.relations.updated ?? [],
-        );
-        if (touched.some((r) => r.rel === HIERARCHY_REVERSE_REL)) {
-          changed.add("System.Parent");
-        }
-      }
-    }
-    return [...changed];
-  } catch {
-    return [];
-  }
-}
-

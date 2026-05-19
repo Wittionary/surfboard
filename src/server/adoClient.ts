@@ -265,14 +265,19 @@ export async function getWorkItems(
 ): Promise<AdoWorkItem[]> {
   if (ids.length === 0) return [];
   type Resp = { value: AdoWorkItem[]; count: number };
-  const data = await client.getJson<Resp>(`wit/workitemsbatch`, {
-    query: undefined,
-  }).catch(async () => {
-    // Fallback to /workitems?ids=… for older API surfaces.
-    return client.getJson<Resp>(`wit/workitems`, {
-      query: { ids: ids.join(","), $expand: options.expand ?? "Relations" },
+  const expand = options.expand ?? "Relations";
+  const data = await client
+    .postJson<Resp>(`wit/workitemsbatch`, { ids: [...ids], $expand: expand })
+    .catch(async (err) => {
+      // Fallback to /workitems?ids=… only for API surfaces that do not expose
+      // workitemsbatch. Other ADO errors are contractual and should surface.
+      if (!(err instanceof AdoError) || (err.status !== 404 && err.status !== 405)) {
+        throw err;
+      }
+      return client.getJson<Resp>(`wit/workitems`, {
+        query: { ids: ids.join(","), $expand: expand },
+      });
     });
-  });
   return data.value;
 }
 

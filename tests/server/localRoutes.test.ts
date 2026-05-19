@@ -9,7 +9,7 @@ import type {
   ParentViewResponse,
   ValidateResponse,
   WorkspaceStatusResponse,
-} from "../../src/server/routes.ts";
+} from "../../src/shared/api.ts";
 
 const FIXTURE_TEMPLATES = resolve(import.meta.dir, "../fixtures/templates");
 

@@ -78,7 +78,7 @@ export function buildAppHandle(deps: AppDeps): AppHandle {
           ws.refresh({ pruneOrphans: true });
         },
       });
-      watcher.start();
+      void watcher.start();
     }
   }
 

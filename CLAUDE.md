@@ -4,7 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Greenfield. No code, no `package.json`, no build tooling yet — only the specification at `docs/2026-05-06-initial-spec.md`. That document is the source of truth for what to build; read it before making non-trivial decisions. Commands (build/lint/test) will appear here as the toolchain is established.
+Surfboard is an implemented Bun + Fastify + SQLite TypeScript app with a static frontend. The original specification remains at `docs/2026-05-06-initial-spec.md`, and the current refactor notes live at `docs/2026-05-19-refactor.md`.
+
+Common commands:
+
+```
+bun run typecheck
+bun test
+bun run check
+bun run build
+bun run verify:mvp
+```
 
 ## What this app is
 
@@ -27,17 +37,16 @@ These two invariants drive almost every design decision; any change that weakens
 
 ## Architecture at a glance
 
-Planned layout (per spec §9.2):
-
 ```
 src/
-  server/      adoClient, syncEngine, validator, yamlStore, fileWatcher,
-               db, audit, webhookServer, health, routes
-  frontend/    index.html, app.ts, styles.css   (minimal; Vite or static TS)
-  shared/      types.ts, constants.ts
+  server/      Fastify app composition, routes, ADO client, sync orchestration,
+               validator, YAML store, workspace scanner/indexer, SQLite cache,
+               audit, webhook, health, file watcher
+  frontend/    static TS app, API client, pure render helpers, CSS, HTML
+  shared/      domain types, API DTOs, constants
 ```
 
-Recommended runtime: Node.js + Fastify (or native HTTP) + SQLite + minimal frontend. Keep dependencies minimal; prefer a custom thin ADO REST wrapper over a large SDK.
+Runtime is Bun. Keep dependencies minimal; the ADO integration is a custom thin REST wrapper rather than a large SDK.
 
 **YAML envelope** is Kubernetes-style: `apiVersion` / `kind` / `metadata` / `spec`. `kind` is the ADO work item type. `spec.fields` keys are ADO field reference names (e.g. `System.Title`, `Microsoft.VSTS.Common.Priority`). `spec.tags` serializes to ADO's semicolon-delimited `System.Tags`. Multi-document YAML (`---` separators) is in scope: identity is `(yaml_path, yaml_document_index)`, and `metadata.localId` must be unique workspace-wide.
 
@@ -48,6 +57,14 @@ Recommended runtime: Node.js + Fastify (or native HTTP) + SQLite + minimal front
 **Hashing:** field/relation hashes must be computed from canonically normalized data so YAML formatting/comments don't produce false content changes.
 
 **Auditing:** every pull/push attempt writes an `audit_log` row (success or failure). Redact PATs and authorization headers from request/response summaries.
+
+## Module boundaries
+
+- `src/shared/types.ts` holds domain types and operation result types. `src/shared/api.ts` holds browser-facing route DTOs. Frontend code must import API contracts from shared modules, not `src/server/*`.
+- `src/server/yamlStore.ts` owns YAML parsing, reading, writing, appending, scanning files, and line lookup. It should not mutate SQLite.
+- `src/server/workspace.ts` owns workspace discovery, document validation, and metadata-only cache indexing. `indexWorkspace` must not overwrite accepted baselines or persist field content.
+- `src/server/syncEngine.ts` keeps public pull/push orchestration. Result tallying, audit writing, remote diagnostics, and selector helpers live in smaller modules.
+- `src/frontend/render.ts` is pure rendering/model code. `src/frontend/apiClient.ts` owns `fetch` wrappers. DOM querying and event wiring stay in `src/frontend/app.ts`.
 
 ## Configuration
 

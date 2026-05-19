@@ -83,6 +83,41 @@ describe("getWorkItems / getDirectChildren", () => {
     expect(children.find((c) => c.id === 221836)?.fields["System.Title"]).toBe("Sandbox PBI A");
   });
 
+  test("getWorkItems uses ADO workitemsbatch POST with ids and expand", async () => {
+    let capturedUrl = "";
+    let capturedMethod = "";
+    let capturedBody: unknown = null;
+    const client = clientWith((url, init) => {
+      capturedUrl = url;
+      capturedMethod = init?.method ?? "";
+      capturedBody = JSON.parse(String(init?.body ?? "{}"));
+      return new Response(fixture("workitems-batch-221836-221837.json"), { status: 200 });
+    });
+    const items = await getWorkItems(client, [221836, 221837], { expand: "All" });
+    expect(items.map((i) => i.id).sort()).toEqual([221836, 221837]);
+    expect(capturedUrl).toContain("/wit/workitemsbatch");
+    expect(capturedMethod).toBe("POST");
+    expect(capturedBody).toEqual({ ids: [221836, 221837], $expand: "All" });
+  });
+
+  test("getWorkItems falls back to query endpoint when batch endpoint is unavailable", async () => {
+    const calls: string[] = [];
+    const client = clientWith((url) => {
+      calls.push(url);
+      if (url.includes("/wit/workitemsbatch")) {
+        return new Response("not found", { status: 404 });
+      }
+      if (url.includes("/wit/workitems?")) {
+        return new Response(fixture("workitems-batch-221836-221837.json"), { status: 200 });
+      }
+      return new Response("not mocked", { status: 404 });
+    });
+    const items = await getWorkItems(client, [221836, 221837]);
+    expect(items.length).toBe(2);
+    expect(calls[0]).toContain("/wit/workitemsbatch");
+    expect(calls[1]).toContain("/wit/workitems?ids=221836%2C221837");
+  });
+
   test("getWorkItems returns empty array for empty input without calling fetch", async () => {
     let calls = 0;
     const client = clientWith(() => {

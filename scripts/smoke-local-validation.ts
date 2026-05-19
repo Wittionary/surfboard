@@ -8,7 +8,7 @@ import { join, resolve } from "node:path";
 import { buildAppHandle } from "../src/server/app.ts";
 import { loadConfig } from "../src/server/config.ts";
 import { openDb } from "../src/server/db.ts";
-import type { ParentViewResponse, ValidateResponse, WorkspaceStatusResponse } from "../src/server/routes.ts";
+import type { ParentViewResponse, ValidateResponse, WorkspaceStatusResponse } from "../src/shared/api.ts";
 
 const FIXTURE_TEMPLATES = resolve(import.meta.dir, "../tests/fixtures/templates");
 
