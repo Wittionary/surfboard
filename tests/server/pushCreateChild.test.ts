@@ -238,4 +238,69 @@ spec:
     const ops = createBody as Array<{ op: string; path: string }>;
     expect(ops.some((o) => o.path === "/relations/-")).toBe(false);
   });
+
+  test("create patch includes defaulted fields when authored YAML omits them", async () => {
+    const { workspaceDir, dbHandle } = setup(`
+apiVersion: surfboard.ado/v1
+kind: Feature
+metadata:
+  localId: feature-a
+  adoId: 100
+spec:
+  parent:
+    adoId: 50
+  fields:
+    System.Title: Feature A
+---
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-new
+spec:
+  parent:
+    localId: feature-a
+    adoId: 100
+  fields:
+    System.Title: New PBI
+`);
+    // Inject a defaults file into the workspace's templates/ dir.
+    writeFileSync(
+      join(workspaceDir, "templates", "defaults.yaml"),
+      `apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+spec:
+  global:
+    fields:
+      System.AreaPath: Alliant
+  kinds:
+    PBI:
+      fields:
+        Microsoft.VSTS.Common.Priority: 2
+`,
+      "utf8",
+    );
+
+    let createBody: Array<{ op: string; path: string; value?: unknown }> = [];
+    const c = client((url, init) => {
+      if (init?.method === "PATCH") {
+        createBody = JSON.parse(String(init.body));
+        return new Response(
+          JSON.stringify({ id: 12345, rev: 1, fields: {} }),
+          { status: 200 },
+        );
+      }
+      return new Response(JSON.stringify({ count: 0, value: [] }), { status: 200 });
+    });
+    const result = await pushParentAndChildren(
+      { client: c, db: dbHandle.db, workspaceDir },
+      { parent: { localId: "feature-a" } },
+    );
+    expect(result.status).toBe("success");
+    const areaPathOp = createBody.find((o) => o.path === "/fields/System.AreaPath");
+    expect(areaPathOp?.value).toBe("Alliant");
+    const priorityOp = createBody.find(
+      (o) => o.path === "/fields/Microsoft.VSTS.Common.Priority",
+    );
+    expect(priorityOp?.value).toBe(2);
+  });
 });

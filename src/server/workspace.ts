@@ -11,6 +11,7 @@ import { loadTemplates, type TemplateLoadResult } from "./templateStore.ts";
 import { validateDocument, validateWorkspace } from "./validator.ts";
 import { upsertWorkItemCache, getAllCached, getCached, deleteCacheEntry } from "./db.ts";
 import { fieldHash, relationHash, safeFileHash } from "./hash.ts";
+import { applyDefaults } from "./defaults.ts";
 import type { ValidationIssue, WorkItemType, SyncStatus, LocalWorkItem } from "../shared/types.ts";
 
 export type WorkspaceDocument = {
@@ -76,16 +77,18 @@ export function validateWorkspaceDocuments(
   const documents: WorkspaceDocument[] = [];
 
   for (const doc of docs) {
-    const docIssues = validateDocument(doc, { templates });
+    const docIssues = validateDocument(doc, { templates, defaults: templates.defaults });
     documents.push({ doc, item: doc.content, issues: docIssues });
     issues.push(...docIssues);
   }
 
   // Cross-document checks: parent matrix, missing parent, duplicate localId,
-  // duplicate sibling titles. Only items with valid envelopes participate.
+  // duplicate sibling titles. Effective items (with defaults applied) are used
+  // so checks like duplicate sibling titles see the effective Title.
   const items = documents
     .map((d) => d.item)
-    .filter((i): i is LocalWorkItem => i !== undefined);
+    .filter((i): i is LocalWorkItem => i !== undefined)
+    .map((i) => applyDefaults(i, templates.defaults));
   const workspaceIssues = validateWorkspace(items).issues;
 
   // Attribute workspace-level issues back to their documents so callers can
@@ -126,7 +129,7 @@ export function indexWorkspaceCache(
     if (!item) continue;
     seenLocalIds.add(item.metadata.localId);
     const fileHash = safeFileHash(item.yamlPath);
-    const status = deriveSyncStatus(wd, db);
+    const status = deriveSyncStatus(wd, db, scan.templates.defaults);
     upsertWorkItemCache(db, {
       localId: item.metadata.localId,
       adoId: item.metadata.adoId,
@@ -156,7 +159,11 @@ export function indexWorkspaceCache(
 
 export const indexWorkspace = indexWorkspaceCache;
 
-function deriveSyncStatus(wd: WorkspaceDocument, db: Database): SyncStatus {
+function deriveSyncStatus(
+  wd: WorkspaceDocument,
+  db: Database,
+  defaults: TemplateLoadResult["defaults"],
+): SyncStatus {
   // Phase 2 derives only local statuses. Pull/push add remote_changed,
   // conflict_blocked, etc. in later phases.
   if (wd.issues.some((i) => i.severity === "error")) return "validation_failed";
@@ -167,8 +174,9 @@ function deriveSyncStatus(wd: WorkspaceDocument, db: Database): SyncStatus {
   const cached = getCached(db, item.metadata.localId);
   if (!cached || cached.lastKnownFieldHash === undefined) return "local_only";
 
-  const currentField = fieldHash(item);
-  const currentRelation = relationHash(item);
+  const effective = applyDefaults(item, defaults);
+  const currentField = fieldHash(effective);
+  const currentRelation = relationHash(effective);
   if (
     currentField === cached.lastKnownFieldHash &&
     currentRelation === cached.lastKnownRelationHash

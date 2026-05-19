@@ -29,7 +29,8 @@ import {
 import { parseYamlFile } from "./yamlStore.ts";
 import type { ValidationIssue } from "../shared/types.ts";
 import { validateDocument, validateWorkspace } from "./validator.ts";
-import { loadTemplates } from "./templateStore.ts";
+import { loadTemplates, type WorkItemDefaults } from "./templateStore.ts";
+import { applyDefaults, omitDefaults } from "./defaults.ts";
 import {
   getAllCached,
   getCached,
@@ -74,6 +75,14 @@ export type SyncEngineDeps = {
   client: AdoClient;
   db: Database;
   workspaceDir: string;
+  /**
+   * Template directory containing WorkItemTemplate and (optionally)
+   * WorkItemDefaults documents. When omitted, falls back to
+   * `<workspaceDir>/templates`. Always pass this explicitly from routes —
+   * otherwise defaults silently won't load when ADO_TEMPLATE_DIR is set to
+   * a non-conventional path.
+   */
+  templateDir?: string;
   /** When provided, audit_log rows scrub this PAT from any request/response summaries. */
   pat?: string;
 };
@@ -621,11 +630,12 @@ function prevalidate(
   set: readonly LocalWorkItem[],
 ): ValidationIssue[] {
   if (set.length === 0) return [];
-  const templateRoot = deriveTemplateDir(deps);
-  const templates = templateRoot ? loadTemplates(templateRoot) : { templates: {}, issues: [] };
+  const templates = loadDeps(deps);
+  const defaults = templates.defaults;
   const issues: ValidationIssue[] = [];
 
-  // Per-document schema validation.
+  // Per-document schema validation. Validate authored raw, but defaults
+  // satisfy required-field and type/enum checks.
   for (const item of set) {
     const docIssues = validateDocument(
       {
@@ -634,15 +644,15 @@ function prevalidate(
         raw: { apiVersion: item.apiVersion, kind: item.kind, metadata: item.metadata, spec: item.spec },
         content: item,
       },
-      { templates },
+      { templates, defaults },
     );
     issues.push(...docIssues.filter((i) => i.severity === "error"));
   }
 
-  // Cross-document checks (duplicates, hierarchy). Only errors block the push;
-  // warnings (e.g. missing parent link) are surfaced via /api/validate but
-  // never stop a push.
-  const wsIssues = validateWorkspace(set).issues;
+  // Cross-document checks run on the effective set so duplicate-sibling-title
+  // and parent matrix see defaulted values.
+  const effectiveSet = set.map((i) => applyDefaults(i, defaults));
+  const wsIssues = validateWorkspace(effectiveSet).issues;
   issues.push(...wsIssues.filter((i) => i.severity === "error"));
 
   // Push-specific checks.
@@ -696,12 +706,21 @@ function prevalidate(
 }
 
 function deriveTemplateDir(deps: SyncEngineDeps): string | null {
-  // Best effort: if any cached row points at workspaceDir/.../templates/...,
-  // we don't bother. In practice the routes pass templateDir in deps; for
-  // engine-level prevalidation we walk back up: workspaceDir/templates is
-  // the convention used by Phase 1.
+  // Honor an explicit templateDir from the routes; fall back to the
+  // conventional <workspaceDir>/templates location.
+  if (deps.templateDir) return existsSync(deps.templateDir) ? deps.templateDir : null;
   const candidate = resolve(deps.workspaceDir, "templates");
   return existsSync(candidate) ? candidate : null;
+}
+
+function loadDeps(deps: SyncEngineDeps): ReturnType<typeof loadTemplates> {
+  const templateRoot = deriveTemplateDir(deps);
+  if (!templateRoot) return { templates: {}, issues: [] };
+  return loadTemplates(templateRoot);
+}
+
+function loadDefaults(deps: SyncEngineDeps): WorkItemDefaults | undefined {
+  return loadDeps(deps).defaults;
 }
 
 async function executeCreate(
@@ -710,13 +729,15 @@ async function executeCreate(
   parentLocal: LocalWorkItem,
 ): Promise<ItemOperationResult> {
   const { local } = step;
+  const defaults = loadDefaults(deps);
+  const effective = applyDefaults(local, defaults);
   const parentAdoId = local.spec.parent?.adoId ?? parentLocal.metadata.adoId;
   // No parent ADO ID? Create the work item without a Hierarchy-Reverse
   // relation — it lands orphaned in ADO. The validator already warned via
   // /api/validate, and the YAML's spec.parent.localId pointer survives so a
   // future push (once the parent has an ADO ID) can re-link the hierarchy.
   const parentUrl = parentAdoId ? workItemUrl(deps.client.organization, parentAdoId) : undefined;
-  const patch = buildCreatePatch({ item: local, parentUrl });
+  const patch = buildCreatePatch({ item: effective, parentUrl });
   let created: AdoWorkItem;
   try {
     const adoTypeName = adoTypeNameForKind(local.kind);
@@ -742,6 +763,7 @@ async function executeCreate(
     metadata: { ...local.metadata, adoId: created.id },
   };
   writeDocument(local.yamlPath, local.yamlDocumentIndex, updated);
+  const effectiveUpdated = applyDefaults(updated, defaults);
   upsertWorkItemCache(deps.db, {
     localId: updated.metadata.localId,
     adoId: created.id,
@@ -756,8 +778,8 @@ async function executeCreate(
     localId: updated.metadata.localId,
     adoId: created.id,
     rev: created.rev,
-    fieldHash: fieldHash(updated),
-    relationHash: relationHash(updated),
+    fieldHash: fieldHash(effectiveUpdated),
+    relationHash: relationHash(effectiveUpdated),
     syncStatus: "synced",
   });
   return {
@@ -789,12 +811,14 @@ async function executeUpdate(
     };
   }
 
+  const defaults = loadDefaults(deps);
+  const effective = applyDefaults(local, defaults);
   const newParentUrl = step.isReparent && local.spec.parent?.adoId
     ? workItemUrl(deps.client.organization, local.spec.parent.adoId)
     : undefined;
 
   const patch = buildUpdatePatch({
-    item: local,
+    item: effective,
     cachedRev: cached.lastKnownRev,
     remote,
     newParentUrl,
@@ -831,8 +855,8 @@ async function executeUpdate(
     localId: local.metadata.localId,
     adoId: remote.id,
     rev: updated.rev,
-    fieldHash: fieldHash(local),
-    relationHash: relationHash(local),
+    fieldHash: fieldHash(effective),
+    relationHash: relationHash(effective),
     syncStatus: "synced",
   });
   return {
@@ -889,6 +913,7 @@ function pullSingle(
   // If the cache entry exists but the YAML file was deleted, treat it as absent
   // so the create-missing path re-creates it rather than skipping.
   const cached = rawCached && existsSync(rawCached.yamlPath) ? rawCached : null;
+  const defaults = loadDefaults(deps);
 
   if (!cached) {
     // Create-missing path.
@@ -901,8 +926,14 @@ function pullSingle(
     local.yamlPath = targetPath;
     local.yamlDocumentIndex = 0;
 
-    const docIndex = appendDocument(targetPath, local);
+    // Effective item is used for hashes; YAML on disk omits values that
+    // already match the applicable defaults.
+    const effective = applyDefaults(local, defaults);
+    const trimmed = omitDefaults(local, defaults);
+    trimmed.yamlPath = targetPath;
+    const docIndex = appendDocument(targetPath, trimmed);
     local.yamlDocumentIndex = docIndex;
+    trimmed.yamlDocumentIndex = docIndex;
 
     upsertWorkItemCache(deps.db, {
       localId: local.metadata.localId,
@@ -918,8 +949,8 @@ function pullSingle(
       localId: local.metadata.localId,
       adoId: remote.id,
       rev: remote.rev,
-      fieldHash: fieldHash(local),
-      relationHash: relationHash(local),
+      fieldHash: fieldHash(effective),
+      relationHash: relationHash(effective),
       syncStatus: "synced",
     });
     return {
@@ -1009,9 +1040,12 @@ function overwriteYamlWithRemote(
     localIdByAdoId,
     deriveLocalId: () => localId,
   });
+  const defaults = loadDefaults(deps);
+  const effective = applyDefaults(local, defaults);
+  const trimmed = omitDefaults(local, defaults);
 
   try {
-    writeDocument(cached.yamlPath, cached.yamlDocumentIndex, local);
+    writeDocument(cached.yamlPath, cached.yamlDocumentIndex, trimmed);
   } catch (err) {
     return {
       action: "pull",
@@ -1041,8 +1075,8 @@ function overwriteYamlWithRemote(
     localId,
     adoId: remote.id,
     rev: remote.rev,
-    fieldHash: fieldHash(local),
-    relationHash: relationHash(local),
+    fieldHash: fieldHash(effective),
+    relationHash: relationHash(effective),
     syncStatus: "synced",
   });
   return {

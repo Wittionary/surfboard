@@ -138,3 +138,265 @@ test("fixture template directory has the five MVP files", () => {
     "task.schema.yaml",
   ]);
 });
+
+describe("loadTemplates — WorkItemDefaults dispatch", () => {
+  test("loads a WorkItemDefaults document and exposes it on the result", () => {
+    const dir = makeTempDir();
+    copyTemplates(dir, ["pbi.schema.yaml"]);
+    writeFileSync(
+      join(dir, "defaults.yaml"),
+      `apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+metadata:
+  name: workspace-defaults
+spec:
+  global:
+    fields:
+      System.AreaPath: Alliant
+  kinds:
+    PBI:
+      fields:
+        Custom.Product: MyProduct
+`,
+      "utf8",
+    );
+
+    const result = loadTemplates(dir);
+
+    expect(result.defaults?.global?.fields).toEqual({ "System.AreaPath": "Alliant" });
+    expect(result.defaults?.kinds?.PBI?.fields).toEqual({ "Custom.Product": "MyProduct" });
+    expect(getTemplate(result, "PBI")?.workItemType).toBe("PBI");
+    // Defaults file presence must not produce a template_malformed error.
+    expect(result.issues.some((i) => i.code === "template_malformed" && i.severity === "error")).toBe(false);
+  });
+
+  test("recognizes any YAML filename for a defaults document", () => {
+    const dir = makeTempDir();
+    copyTemplates(dir, ["pbi.schema.yaml"]);
+    writeFileSync(
+      join(dir, "workitem-defaults.yml"),
+      `apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+spec:
+  global:
+    fields:
+      System.AreaPath: TeamA
+`,
+      "utf8",
+    );
+    const result = loadTemplates(dir);
+    expect(result.defaults?.global?.fields).toEqual({ "System.AreaPath": "TeamA" });
+  });
+
+  test("malformed defaults document produces a warning, not an error", () => {
+    const dir = makeTempDir();
+    copyTemplates(dir, ["pbi.schema.yaml"]);
+    writeFileSync(
+      join(dir, "defaults.yaml"),
+      `apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+spec:
+  kinds:
+    NotAKind:
+      fields:
+        x: y
+`,
+      "utf8",
+    );
+    const result = loadTemplates(dir);
+    const defaultsIssues = result.issues.filter(
+      (i) => i.code === "template_malformed" && i.yamlPath?.endsWith("defaults.yaml"),
+    );
+    expect(defaultsIssues.length).toBeGreaterThan(0);
+    expect(defaultsIssues.every((i) => i.severity === "warning")).toBe(true);
+    // Templates still load.
+    expect(getTemplate(result, "PBI")?.workItemType).toBe("PBI");
+  });
+
+  test("multi-document defaults file warns and uses doc 0", () => {
+    const dir = makeTempDir();
+    copyTemplates(dir, ["pbi.schema.yaml"]);
+    writeFileSync(
+      join(dir, "defaults.yaml"),
+      `apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+spec:
+  global:
+    fields:
+      System.AreaPath: First
+---
+apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+spec:
+  global:
+    fields:
+      System.AreaPath: Second
+`,
+      "utf8",
+    );
+    const result = loadTemplates(dir);
+    expect(result.defaults?.global?.fields).toEqual({ "System.AreaPath": "First" });
+    expect(
+      result.issues.some(
+        (i) =>
+          i.severity === "warning" &&
+          i.code === "template_malformed" &&
+          i.message.includes("multiple YAML documents"),
+      ),
+    ).toBe(true);
+  });
+
+  test("multiple defaults documents across files: first by scan order wins, rest warn", () => {
+    const dir = makeTempDir();
+    copyTemplates(dir, ["pbi.schema.yaml"]);
+    writeFileSync(
+      join(dir, "a-defaults.yaml"),
+      `apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+spec:
+  global:
+    fields:
+      System.AreaPath: A
+`,
+      "utf8",
+    );
+    writeFileSync(
+      join(dir, "b-defaults.yaml"),
+      `apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+spec:
+  global:
+    fields:
+      System.AreaPath: B
+`,
+      "utf8",
+    );
+    const result = loadTemplates(dir);
+    // scanWorkspaceFiles sorts by full path, so "a-defaults" comes first.
+    expect(result.defaults?.global?.fields).toEqual({ "System.AreaPath": "A" });
+    expect(
+      result.issues.some(
+        (i) =>
+          i.severity === "warning" &&
+          i.code === "template_malformed" &&
+          i.message.includes("Duplicate WorkItemDefaults"),
+      ),
+    ).toBe(true);
+  });
+
+  test("unknown template-directory document kinds warn but do not block template loading", () => {
+    const dir = makeTempDir();
+    copyTemplates(dir, ["pbi.schema.yaml"]);
+    writeFileSync(
+      join(dir, "extra.yaml"),
+      `apiVersion: surfboard.ado/v1
+kind: SomethingElse
+spec: {}
+`,
+      "utf8",
+    );
+    const result = loadTemplates(dir);
+    expect(getTemplate(result, "PBI")?.workItemType).toBe("PBI");
+    const extraIssues = result.issues.filter((i) => i.yamlPath?.endsWith("extra.yaml"));
+    expect(extraIssues.length).toBeGreaterThan(0);
+    expect(extraIssues.every((i) => i.severity === "warning")).toBe(true);
+  });
+
+  // Regression: a kind block whose `fields:` parses to null (e.g. because all
+  // entries are commented out) used to fail with "must be a mapping" and
+  // discard the entire defaults document, including unrelated global
+  // defaults. Now it must be treated as "no entries" and the rest of the
+  // defaults document must still load.
+  test("kind scope with null fields/metadata/tags is tolerated and does not drop other defaults", () => {
+    const dir = makeTempDir();
+    copyTemplates(dir, ["pbi.schema.yaml"]);
+    writeFileSync(
+      join(dir, "defaults.yaml"),
+      `apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+spec:
+  global:
+    fields:
+      Custom.Product: Platform
+  kinds:
+    Feature:
+      fields:
+    PBI:
+      metadata:
+`,
+      "utf8",
+    );
+    const result = loadTemplates(dir);
+    expect(result.defaults?.global?.fields?.["Custom.Product"]).toBe("Platform");
+    // No spurious "must be a mapping" warnings for empty sections.
+    const malformed = result.issues.filter(
+      (i) => i.code === "template_malformed" && i.message.includes("must be a mapping"),
+    );
+    expect(malformed).toEqual([]);
+  });
+
+  // Regression: a malformed kind block previously caused the whole defaults
+  // document to be discarded. Now it must warn for that one kind and keep
+  // the rest of the document loaded.
+  test("one malformed kind warns but other kinds and global still load", () => {
+    const dir = makeTempDir();
+    copyTemplates(dir, ["pbi.schema.yaml"]);
+    writeFileSync(
+      join(dir, "defaults.yaml"),
+      `apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+spec:
+  global:
+    fields:
+      Custom.Product: Platform
+  kinds:
+    Feature:
+      fields: [not, a, mapping]
+    PBI:
+      fields:
+        Microsoft.VSTS.Common.Priority: 2
+`,
+      "utf8",
+    );
+    const result = loadTemplates(dir);
+    expect(result.defaults?.global?.fields?.["Custom.Product"]).toBe("Platform");
+    expect(result.defaults?.kinds?.PBI?.fields?.["Microsoft.VSTS.Common.Priority"]).toBe(2);
+    expect(result.defaults?.kinds?.Feature).toBeUndefined();
+    expect(
+      result.issues.some(
+        (i) =>
+          i.severity === "warning" &&
+          i.code === "template_malformed" &&
+          i.message.includes("spec.kinds.Feature"),
+      ),
+    ).toBe(true);
+  });
+
+  // Regression: an empty `fields:` at the global level must not drop global
+  // defaults either (mirrors the kind-scope case above).
+  test("global scope with null fields is tolerated", () => {
+    const dir = makeTempDir();
+    copyTemplates(dir, ["pbi.schema.yaml"]);
+    writeFileSync(
+      join(dir, "defaults.yaml"),
+      `apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+spec:
+  global:
+    fields:
+  kinds:
+    PBI:
+      fields:
+        Custom.Product: Platform
+`,
+      "utf8",
+    );
+    const result = loadTemplates(dir);
+    expect(result.defaults?.kinds?.PBI?.fields?.["Custom.Product"]).toBe("Platform");
+    expect(
+      result.issues.some(
+        (i) => i.code === "template_malformed" && i.message.includes("spec.global.fields"),
+      ),
+    ).toBe(false);
+  });
+});

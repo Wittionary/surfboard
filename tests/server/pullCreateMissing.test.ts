@@ -1,11 +1,28 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { AdoClient } from "../../src/server/adoClient.ts";
 import { getCachedByAdoId, openDb, type DbHandle } from "../../src/server/db.ts";
 import { pullParentAndChildren } from "../../src/server/syncEngine.ts";
 import { parseYamlFile } from "../../src/server/yamlStore.ts";
+
+const FIXTURE_TEMPLATES = resolve(import.meta.dir, "../fixtures/templates");
+
+function seedTemplatesWithDefaults(workspaceDir: string, defaultsYaml: string): void {
+  const templateDir = join(workspaceDir, "templates");
+  mkdirSync(templateDir, { recursive: true });
+  for (const name of [
+    "epic.schema.yaml",
+    "feature.schema.yaml",
+    "pbi.schema.yaml",
+    "enabler.schema.yaml",
+    "task.schema.yaml",
+  ]) {
+    copyFileSync(join(FIXTURE_TEMPLATES, name), join(templateDir, name));
+  }
+  writeFileSync(join(templateDir, "defaults.yaml"), defaultsYaml, "utf8");
+}
 
 const FIXTURES = resolve(import.meta.dir, "../fixtures/ado");
 function fixture(name: string): string {
@@ -175,6 +192,118 @@ describe("pullParentAndChildren — create missing", () => {
 
     expect(result.status).toBe("blocked");
     expect(result.items[0]?.errorCode).toBe("remote_deleted");
+  });
+
+  test("pull-created YAML omits a field whose value matches the applicable default", async () => {
+    const workspaceDir = ws();
+    const dbHandle = openDb({ workspaceDir, path: ":memory:" });
+    dbHandles.push(dbHandle);
+    // The fixture sets Microsoft.VSTS.Common.Priority=2 on pbi-221836 and omits
+    // it on pbi-221837. With a PBI default of priority=2, the first PBI's
+    // priority should be omitted from YAML while the second stays as-is.
+    seedTemplatesWithDefaults(
+      workspaceDir,
+      `apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+spec:
+  kinds:
+    PBI:
+      fields:
+        Microsoft.VSTS.Common.Priority: 2
+`,
+    );
+    const client = clientFor({
+      "/wit/workitems/221835?": fixture("workitem-221835.json"),
+      "/wit/wiql": fixture("wiql-children-221835.json"),
+      "/wit/workitems?ids=": fixture("workitems-batch-221836-221837.json"),
+    });
+
+    const result = await pullParentAndChildren(
+      { client, db: dbHandle.db, workspaceDir },
+      { selector: { adoId: 221835 } },
+    );
+    expect(result.status).toBe("success");
+
+    const pbi36 = parseYamlFile(
+      join(workspaceDir, "workitems", "pbis", "pbi-221836.yaml"),
+    )[0]?.content;
+    expect(pbi36?.spec.fields["Microsoft.VSTS.Common.Priority"]).toBeUndefined();
+    expect(pbi36?.spec.fields["System.Title"]).toBe("Sandbox PBI A");
+
+    // pbi-221837 has no priority remotely, so nothing to omit; it stays sparse.
+    const pbi37 = parseYamlFile(
+      join(workspaceDir, "workitems", "pbis", "pbi-221837.yaml"),
+    )[0]?.content;
+    expect(pbi37?.spec.fields["Microsoft.VSTS.Common.Priority"]).toBeUndefined();
+  });
+
+  test("pull-created YAML keeps a field whose value differs from the default", async () => {
+    const workspaceDir = ws();
+    const dbHandle = openDb({ workspaceDir, path: ":memory:" });
+    dbHandles.push(dbHandle);
+    // Default priority is 3; the remote PBI has priority 2, so it must be kept.
+    seedTemplatesWithDefaults(
+      workspaceDir,
+      `apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+spec:
+  kinds:
+    PBI:
+      fields:
+        Microsoft.VSTS.Common.Priority: 3
+`,
+    );
+    const client = clientFor({
+      "/wit/workitems/221835?": fixture("workitem-221835.json"),
+      "/wit/wiql": fixture("wiql-children-221835.json"),
+      "/wit/workitems?ids=": fixture("workitems-batch-221836-221837.json"),
+    });
+    await pullParentAndChildren(
+      { client, db: dbHandle.db, workspaceDir },
+      { selector: { adoId: 221835 } },
+    );
+
+    const pbi36 = parseYamlFile(
+      join(workspaceDir, "workitems", "pbis", "pbi-221836.yaml"),
+    )[0]?.content;
+    expect(pbi36?.spec.fields["Microsoft.VSTS.Common.Priority"]).toBe(2);
+  });
+
+  test("baselines after pull are stable: a refreshed scan sees synced status when YAML omits defaulted values", async () => {
+    const workspaceDir = ws();
+    const dbHandle = openDb({ workspaceDir, path: ":memory:" });
+    dbHandles.push(dbHandle);
+    seedTemplatesWithDefaults(
+      workspaceDir,
+      `apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+spec:
+  kinds:
+    PBI:
+      fields:
+        Microsoft.VSTS.Common.Priority: 2
+`,
+    );
+    const client = clientFor({
+      "/wit/workitems/221835?": fixture("workitem-221835.json"),
+      "/wit/wiql": fixture("wiql-children-221835.json"),
+      "/wit/workitems?ids=": fixture("workitems-batch-221836-221837.json"),
+    });
+    await pullParentAndChildren(
+      { client, db: dbHandle.db, workspaceDir },
+      { selector: { adoId: 221835 } },
+    );
+
+    // Re-index from disk and confirm pbi-221836 (which now omits priority)
+    // is still considered synced — the baseline used effective hash.
+    const { indexWorkspace, scanWorkspace } = await import("../../src/server/workspace.ts");
+    const scan = scanWorkspace({
+      workspaceDir,
+      templateDir: join(workspaceDir, "templates"),
+    });
+    indexWorkspace(dbHandle.db, scan);
+    const cached = getCachedByAdoId(dbHandle.db, 221836);
+    expect(cached?.syncStatus).toBe("synced");
   });
 
   test("propagates fetch failure as failed without writing YAML", async () => {

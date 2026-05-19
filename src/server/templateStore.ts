@@ -25,8 +25,21 @@ export type WorkItemTemplate = {
   source: { path: string; documentIndex: number };
 };
 
+export type WorkItemDefaultsScope = {
+  metadata?: Record<string, unknown>;
+  fields?: Record<string, unknown>;
+  tags?: readonly string[];
+};
+
+export type WorkItemDefaults = {
+  global?: WorkItemDefaultsScope;
+  kinds?: Partial<Record<WorkItemType, WorkItemDefaultsScope>>;
+  source: { path: string; documentIndex: number };
+};
+
 export type TemplateLoadResult = {
   templates: Partial<Record<WorkItemType, WorkItemTemplate>>;
+  defaults?: WorkItemDefaults;
   issues: ValidationIssue[];
 };
 
@@ -42,6 +55,7 @@ const VALID_UNKNOWN_FIELDS: ReadonlySet<UnknownFieldsPolicy> = new Set(["fail", 
 export function loadTemplates(templateDir: string): TemplateLoadResult {
   const templates: Partial<Record<WorkItemType, WorkItemTemplate>> = {};
   const issues: ValidationIssue[] = [];
+  let defaults: WorkItemDefaults | undefined;
 
   if (!templateDir || !existsSync(templateDir)) {
     issues.push({
@@ -55,7 +69,57 @@ export function loadTemplates(templateDir: string): TemplateLoadResult {
   const files = scanWorkspaceFiles(templateDir);
   for (const file of files) {
     const docs = parseYamlFile(file.path);
+    const fileHasDefaults = docs.some((d) => looksLikeDefaultsDoc(d.raw));
+    // A YAML parse error wipes out `raw`, which would otherwise make a
+    // defaults file look like an empty template. Detect the parse error here
+    // and surface it directly so the user sees the YAML message, not a
+    // misleading "Template document is empty".
+    const fileLooksLikeDefaultsByName = /(^|[/\\])defaults?\.(yaml|yml)$/i.test(file.path);
+    if (
+      (fileHasDefaults || fileLooksLikeDefaultsByName) &&
+      docs.some((d) => d.parseError)
+    ) {
+      const errDoc = docs.find((d) => d.parseError);
+      issues.push({
+        severity: "warning",
+        code: "template_malformed",
+        message: `WorkItemDefaults file ${file.path} failed to parse: ${errDoc?.parseError}`,
+        yamlPath: file.path,
+        yamlDocumentIndex: errDoc?.documentIndex ?? 0,
+      });
+      continue;
+    }
+    if (fileHasDefaults && docs.length > 1) {
+      issues.push({
+        severity: "warning",
+        code: "template_malformed",
+        message: `WorkItemDefaults file ${file.path} contains multiple YAML documents; only document 0 is used`,
+        yamlPath: file.path,
+        yamlDocumentIndex: 0,
+      });
+    }
     for (const doc of docs) {
+      const kind = getDocumentKind(doc.raw);
+      if (kind === "WorkItemDefaults") {
+        if (doc.documentIndex > 0) continue;
+        const result = parseDefaultsDocument(file.path, doc.documentIndex, doc.raw);
+        issues.push(...result.issues);
+        if (!result.defaults) continue;
+        if (defaults) {
+          issues.push({
+            severity: "warning",
+            code: "template_malformed",
+            message: `Duplicate WorkItemDefaults at ${result.defaults.source.path}#${result.defaults.source.documentIndex}; using ${defaults.source.path}#${defaults.source.documentIndex}`,
+            yamlPath: result.defaults.source.path,
+            yamlDocumentIndex: result.defaults.source.documentIndex,
+          });
+          continue;
+        }
+        defaults = result.defaults;
+        continue;
+      }
+      // If file is dedicated to defaults, skip parsing remaining docs as templates.
+      if (fileHasDefaults) continue;
       const result = parseTemplateDocument(file.path, doc.documentIndex, doc.raw);
       if (result.issue) {
         issues.push(result.issue);
@@ -88,7 +152,18 @@ export function loadTemplates(templateDir: string): TemplateLoadResult {
     }
   }
 
-  return { templates, issues };
+  return { templates, defaults, issues };
+}
+
+function getDocumentKind(raw: unknown): string | undefined {
+  if (raw === null || raw === undefined) return undefined;
+  if (typeof raw !== "object") return undefined;
+  const k = (raw as Record<string, unknown>).kind;
+  return typeof k === "string" ? k : undefined;
+}
+
+function looksLikeDefaultsDoc(raw: unknown): boolean {
+  return getDocumentKind(raw) === "WorkItemDefaults";
 }
 
 export function getTemplate(
@@ -140,9 +215,9 @@ function parseTemplateDocument(
   if (obj.kind !== "WorkItemTemplate") {
     return {
       issue: {
-        severity: "error",
+        severity: "warning",
         code: "template_malformed",
-        message: "Template kind must be WorkItemTemplate",
+        message: `Template directory document at ${path}#${documentIndex} has unknown kind ${JSON.stringify(obj.kind)}; expected WorkItemTemplate or WorkItemDefaults`,
         yamlPath: path,
         yamlDocumentIndex: documentIndex,
       },
@@ -351,6 +426,145 @@ function readTagsAllowed(value: unknown): boolean {
   if (typeof value !== "object" || value === null) return false;
   const obj = value as Record<string, unknown>;
   return obj.allowed === true;
+}
+
+function parseDefaultsDocument(
+  path: string,
+  documentIndex: number,
+  raw: unknown,
+): { defaults?: WorkItemDefaults; issues: ValidationIssue[] } {
+  const issues: ValidationIssue[] = [];
+  const here = (msg: string): ValidationIssue => ({
+    severity: "warning",
+    code: "template_malformed",
+    message: msg,
+    yamlPath: path,
+    yamlDocumentIndex: documentIndex,
+  });
+
+  if (raw === null || raw === undefined || typeof raw !== "object" || Array.isArray(raw)) {
+    return { issues: [here("WorkItemDefaults document must be a mapping")] };
+  }
+  const obj = raw as Record<string, unknown>;
+  if (obj.apiVersion !== "surfboard.ado/v1") {
+    return { issues: [here("WorkItemDefaults apiVersion must be surfboard.ado/v1")] };
+  }
+  const spec = obj.spec;
+  if (spec === undefined || spec === null) {
+    return { defaults: { source: { path, documentIndex } }, issues };
+  }
+  if (typeof spec !== "object" || Array.isArray(spec)) {
+    return { issues: [here("WorkItemDefaults spec must be a mapping")] };
+  }
+  const specObj = spec as Record<string, unknown>;
+  const global = parseDefaultsScope(specObj.global, path, documentIndex, "spec.global");
+  if ("issue" in global) issues.push(global.issue);
+
+  const kinds: Partial<Record<WorkItemType, WorkItemDefaultsScope>> = {};
+  if (specObj.kinds !== undefined && specObj.kinds !== null) {
+    if (typeof specObj.kinds !== "object" || Array.isArray(specObj.kinds)) {
+      issues.push(here("WorkItemDefaults spec.kinds must be a mapping"));
+    } else {
+      for (const [kindName, rawScope] of Object.entries(specObj.kinds as Record<string, unknown>)) {
+        if (!WORK_ITEM_TYPES.includes(kindName as WorkItemType)) {
+          issues.push(
+            here(`WorkItemDefaults spec.kinds key ${kindName} is not a known work item type`),
+          );
+          continue;
+        }
+        const scope = parseDefaultsScope(rawScope, path, documentIndex, `spec.kinds.${kindName}`);
+        if ("issue" in scope) {
+          issues.push(scope.issue);
+          continue;
+        }
+        if (scope.value !== undefined) kinds[kindName as WorkItemType] = scope.value;
+      }
+    }
+  }
+
+  const globalValue = "value" in global ? global.value : undefined;
+  return {
+    defaults: {
+      ...(globalValue ? { global: globalValue } : {}),
+      ...(Object.keys(kinds).length > 0 ? { kinds } : {}),
+      source: { path, documentIndex },
+    },
+    issues,
+  };
+}
+
+function parseDefaultsScope(
+  raw: unknown,
+  path: string,
+  documentIndex: number,
+  label: string,
+): { value?: WorkItemDefaultsScope } | { issue: ValidationIssue } {
+  // null/undefined scope (`Feature:` with no body, or `Feature: null`) is
+  // valid and contributes nothing — a comment-only block parses to null.
+  if (raw === undefined || raw === null) return { value: undefined };
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    return {
+      issue: {
+        severity: "warning",
+        code: "template_malformed",
+        message: `WorkItemDefaults ${label} must be a mapping`,
+        yamlPath: path,
+        yamlDocumentIndex: documentIndex,
+      },
+    };
+  }
+  const obj = raw as Record<string, unknown>;
+  const scope: WorkItemDefaultsScope = {};
+
+  // metadata/fields can be null when the user comments out all entries
+  // (`fields:` with only comments parses to null). Treat null as "no
+  // entries" rather than malformed.
+  if (obj.metadata !== undefined && obj.metadata !== null) {
+    if (typeof obj.metadata !== "object" || Array.isArray(obj.metadata)) {
+      return {
+        issue: {
+          severity: "warning",
+          code: "template_malformed",
+          message: `WorkItemDefaults ${label}.metadata must be a mapping`,
+          yamlPath: path,
+          yamlDocumentIndex: documentIndex,
+        },
+      };
+    }
+    scope.metadata = { ...(obj.metadata as Record<string, unknown>) };
+  }
+
+  if (obj.fields !== undefined && obj.fields !== null) {
+    if (typeof obj.fields !== "object" || Array.isArray(obj.fields)) {
+      return {
+        issue: {
+          severity: "warning",
+          code: "template_malformed",
+          message: `WorkItemDefaults ${label}.fields must be a mapping`,
+          yamlPath: path,
+          yamlDocumentIndex: documentIndex,
+        },
+      };
+    }
+    scope.fields = { ...(obj.fields as Record<string, unknown>) };
+  }
+
+  if (obj.tags !== undefined && obj.tags !== null) {
+    if (!Array.isArray(obj.tags) || !obj.tags.every((t) => typeof t === "string")) {
+      return {
+        issue: {
+          severity: "warning",
+          code: "template_malformed",
+          message: `WorkItemDefaults ${label}.tags must be an array of strings`,
+          yamlPath: path,
+          yamlDocumentIndex: documentIndex,
+        },
+      };
+    }
+    scope.tags = [...(obj.tags as string[])];
+  }
+
+  return { value: Object.keys(scope).length > 0 ? scope : undefined };
 }
 
 function readUnknownFields(

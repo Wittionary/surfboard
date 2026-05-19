@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
-import { loadTemplates } from "../../src/server/templateStore.ts";
+import { loadTemplates, type WorkItemDefaults } from "../../src/server/templateStore.ts";
 import { validateDocument } from "../../src/server/validator.ts";
 import type { ParsedDocument } from "../../src/server/yamlStore.ts";
 
@@ -246,6 +246,92 @@ describe("validateDocument — fields and templates", () => {
     );
     expect(issues[0]?.yamlPath).toBe("/tmp/some.yaml");
     expect(issues[0]?.yamlDocumentIndex).toBe(2);
+  });
+});
+
+describe("validateDocument — defaults", () => {
+  const defaults: WorkItemDefaults = {
+    global: { fields: { "System.AreaPath": "Alliant" } },
+    kinds: {
+      PBI: {
+        fields: { "System.Title": "Defaulted Title", "Microsoft.VSTS.Common.Priority": 2 },
+      },
+    },
+    source: { path: "/tmp/defaults.yaml", documentIndex: 0 },
+  };
+
+  test("required field supplied by defaults satisfies validation", () => {
+    const issues = validateDocument(
+      doc({
+        apiVersion: "surfboard.ado/v1",
+        kind: "PBI",
+        metadata: { localId: "pbi-1" },
+        spec: { fields: {} },
+      }),
+      { templates, defaults },
+    );
+    expect(issues).toEqual([]);
+  });
+
+  test("still flags missing required field when neither YAML nor defaults supply it", () => {
+    const noTitleDefaults: WorkItemDefaults = {
+      global: { fields: { "System.AreaPath": "Alliant" } },
+      source: { path: "/tmp/defaults.yaml", documentIndex: 0 },
+    };
+    const issues = validateDocument(
+      doc({
+        apiVersion: "surfboard.ado/v1",
+        kind: "PBI",
+        metadata: { localId: "pbi-1" },
+        spec: { fields: {} },
+      }),
+      { templates, defaults: noTitleDefaults },
+    );
+    expect(
+      issues.some(
+        (i) => i.code === "missing_required_field" && i.field === "spec.fields.System.Title",
+      ),
+    ).toBe(true);
+  });
+
+  test("defaulted field with invalid enum value is reported against the work item", () => {
+    const badDefaults: WorkItemDefaults = {
+      kinds: {
+        PBI: { fields: { "Microsoft.VSTS.Common.Priority": 9 } },
+      },
+      source: { path: "/tmp/defaults.yaml", documentIndex: 0 },
+    };
+    const issues = validateDocument(
+      doc({
+        apiVersion: "surfboard.ado/v1",
+        kind: "PBI",
+        metadata: { localId: "pbi-1" },
+        spec: { fields: { "System.Title": "x" } },
+      }),
+      { templates, defaults: badDefaults },
+    );
+    expect(issues.some((i) => i.code === "invalid_enum_value")).toBe(true);
+  });
+
+  test("authored value overrides defaulted invalid value", () => {
+    const badDefaults: WorkItemDefaults = {
+      kinds: {
+        PBI: { fields: { "Microsoft.VSTS.Common.Priority": 9 } },
+      },
+      source: { path: "/tmp/defaults.yaml", documentIndex: 0 },
+    };
+    const issues = validateDocument(
+      doc({
+        apiVersion: "surfboard.ado/v1",
+        kind: "PBI",
+        metadata: { localId: "pbi-1" },
+        spec: {
+          fields: { "System.Title": "x", "Microsoft.VSTS.Common.Priority": 2 },
+        },
+      }),
+      { templates, defaults: badDefaults },
+    );
+    expect(issues.some((i) => i.code === "invalid_enum_value")).toBe(false);
   });
 });
 

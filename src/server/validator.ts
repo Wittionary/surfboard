@@ -4,13 +4,19 @@
 //   parents, duplicate localId, and duplicate sibling titles.
 
 import type { ParsedDocument } from "./yamlStore.ts";
-import type { TemplateLoadResult, WorkItemTemplate, TemplateFieldRule, TemplateFieldType } from "./templateStore.ts";
+import type { TemplateLoadResult, WorkItemTemplate, TemplateFieldRule, TemplateFieldType, WorkItemDefaults, WorkItemDefaultsScope } from "./templateStore.ts";
 import { getTemplate } from "./templateStore.ts";
 import { API_VERSION, PARENT_MATRIX, WORK_ITEM_KINDS_REQUIRING_PARENT, WORK_ITEM_TYPES, SYSTEM_TITLE_FIELD } from "../shared/constants.ts";
 import type { LocalWorkItem, ValidationIssue, WorkItemType } from "../shared/types.ts";
 
 export type ValidationContext = {
   templates: TemplateLoadResult;
+  /**
+   * Workspace-wide defaults, applied to compute effective field/tag values
+   * for required-field, type, and enum checks. Authored values still win and
+   * authored tags replace default tags as a whole.
+   */
+  defaults?: WorkItemDefaults;
 };
 
 const ALLOWED_TOP_LEVEL = new Set(["apiVersion", "kind", "metadata", "spec"]);
@@ -125,7 +131,16 @@ export function validateDocument(
   validateParent(specObj.parent, issues, here, localId);
 
   const template = getTemplate(ctx.templates, kind as WorkItemType);
-  validateFields(kind as WorkItemType, specObj.fields, specObj.tags, template, issues, here, localId);
+  validateFields(
+    kind as WorkItemType,
+    specObj.fields,
+    specObj.tags,
+    template,
+    issues,
+    here,
+    localId,
+    ctx.defaults,
+  );
 
   return issues;
 }
@@ -249,6 +264,7 @@ function validateFields(
   issues: ValidationIssue[],
   here: (e: Partial<ValidationIssue>) => Partial<ValidationIssue>,
   localId: string | undefined,
+  defaults: WorkItemDefaults | undefined,
 ): void {
   if (typeof rawFields !== "object" || rawFields === null || Array.isArray(rawFields)) {
     issues.push({
@@ -262,6 +278,19 @@ function validateFields(
   }
   const fields = rawFields as Record<string, unknown>;
 
+  // Combine global+kind scopes for this work item type.
+  const defaultFields: Record<string, unknown> = {};
+  let defaultTags: readonly string[] | undefined;
+  for (const scope of effectiveScopes(defaults, kind)) {
+    if (scope.fields) for (const [k, v] of Object.entries(scope.fields)) defaultFields[k] = v;
+    if (scope.tags !== undefined) defaultTags = scope.tags;
+  }
+  // Effective fields: defaults first, authored overrides.
+  const effectiveFields: Record<string, unknown> = { ...defaultFields };
+  for (const [k, v] of Object.entries(fields)) effectiveFields[k] = v;
+
+  // Tags validation runs against authored tags; defaults provide effective
+  // tags only when authored tags are absent.
   if (rawTags !== undefined) {
     if (!Array.isArray(rawTags) || !rawTags.every((t) => typeof t === "string")) {
       issues.push({
@@ -281,6 +310,14 @@ function validateFields(
         ...here({ localId }),
       });
     }
+  } else if (defaultTags && defaultTags.length > 0 && template && !template.tagsAllowed) {
+    issues.push({
+      severity: "error",
+      code: "tags_not_allowed",
+      message: `Tags are not allowed for ${kind} per template (supplied by defaults)`,
+      field: "spec.tags",
+      ...here({ localId }),
+    });
   }
 
   if (!template) return; // template_missing reported elsewhere
@@ -290,7 +327,7 @@ function validateFields(
   const knownFieldSet = new Set([...requiredSet, ...optionalSet, ...Object.keys(template.fieldRules)]);
 
   for (const required of requiredSet) {
-    const value = fields[required];
+    const value = effectiveFields[required];
     if (value === undefined || value === null || (typeof value === "string" && value.trim().length === 0)) {
       issues.push({
         severity: "error",
@@ -302,6 +339,7 @@ function validateFields(
     }
   }
 
+  // Authored fields: flagged with the usual unknown_field policy.
   for (const fieldName of Object.keys(fields)) {
     if (!knownFieldSet.has(fieldName)) {
       const policy = template.unknownFields;
@@ -323,11 +361,27 @@ function validateFields(
         });
       }
     }
+  }
+
+  // Type/enum rules apply to all effective values (authored + defaulted).
+  for (const fieldName of Object.keys(effectiveFields)) {
     const rule = template.fieldRules[fieldName];
     if (rule) {
-      validateFieldRule(fieldName, fields[fieldName], rule, issues, here, localId);
+      validateFieldRule(fieldName, effectiveFields[fieldName], rule, issues, here, localId);
     }
   }
+}
+
+function effectiveScopes(
+  defaults: WorkItemDefaults | undefined,
+  kind: WorkItemType,
+): WorkItemDefaultsScope[] {
+  if (!defaults) return [];
+  const out: WorkItemDefaultsScope[] = [];
+  if (defaults.global) out.push(defaults.global);
+  const kindScope = defaults.kinds?.[kind];
+  if (kindScope) out.push(kindScope);
+  return out;
 }
 
 function validateFieldRule(

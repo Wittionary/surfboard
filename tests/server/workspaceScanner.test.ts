@@ -341,3 +341,151 @@ spec:
     expect(cached?.syncStatus).toBe("local_changed");
   });
 });
+
+describe("scanWorkspace — defaults", () => {
+  function withDefaults(spec: string): { workspaceDir: string; templateDir: string } {
+    const ws = makeWorkspace();
+    writeFileSync(join(ws.templateDir, "defaults.yaml"), spec, "utf8");
+    return ws;
+  }
+
+  test("required field supplied by defaults satisfies workspace validation", () => {
+    const { workspaceDir, templateDir } = withDefaults(`apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+spec:
+  kinds:
+    PBI:
+      fields:
+        System.Title: Defaulted
+`);
+    const items = join(workspaceDir, "workitems");
+    mkdirSync(items, { recursive: true });
+    writeFileSync(
+      join(items, "pbi.yaml"),
+      `apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-1
+spec:
+  fields: {}
+`,
+      "utf8",
+    );
+
+    const scan = scanWorkspace({ workspaceDir, templateDir });
+    expect(
+      scan.issues.some(
+        (i) => i.code === "missing_required_field" && i.field === "spec.fields.System.Title",
+      ),
+    ).toBe(false);
+  });
+
+  test("duplicate sibling title is detected against effective (defaulted) titles", () => {
+    const { workspaceDir, templateDir } = withDefaults(`apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+spec:
+  kinds:
+    PBI:
+      fields:
+        System.Title: Same Title
+`);
+    const items = join(workspaceDir, "workitems");
+    mkdirSync(items, { recursive: true });
+    writeFileSync(
+      join(items, "two.yaml"),
+      `apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-1
+spec:
+  parent:
+    adoId: 100
+  fields: {}
+---
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-2
+spec:
+  parent:
+    adoId: 100
+  fields: {}
+`,
+      "utf8",
+    );
+    const scan = scanWorkspace({ workspaceDir, templateDir });
+    expect(scan.issues.some((i) => i.code === "duplicate_sibling_title")).toBe(true);
+  });
+
+  // Regression: a globally-defined Custom.Product=Platform should satisfy
+  // PBI's required-field check even when a sibling kind block has empty/null
+  // fields (e.g. user commented out all Feature entries). Previously this
+  // caused the entire defaults document to be discarded.
+  test("global Custom.Product still satisfies PBI required-field check when a sibling kind has null fields", () => {
+    const { workspaceDir, templateDir } = withDefaults(`apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+spec:
+  global:
+    fields:
+      Custom.Product: Platform
+  kinds:
+    Feature:
+      fields:
+`);
+    const items = join(workspaceDir, "workitems");
+    mkdirSync(items, { recursive: true });
+    writeFileSync(
+      join(items, "pbi.yaml"),
+      `apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-child-1
+spec:
+  fields:
+    System.Title: child 1
+`,
+      "utf8",
+    );
+    const scan = scanWorkspace({ workspaceDir, templateDir });
+    const docIssues = scan.documents[0]?.issues ?? [];
+    expect(
+      docIssues.some(
+        (i) =>
+          i.code === "missing_required_field" && i.field === "spec.fields.Custom.Product",
+      ),
+    ).toBe(false);
+  });
+
+  test("defaults warnings appear alongside valid workspace scans", () => {
+    const { workspaceDir, templateDir } = withDefaults(`apiVersion: surfboard.ado/v1
+kind: WorkItemDefaults
+spec:
+  kinds:
+    NotAKind:
+      fields:
+        x: y
+`);
+    const items = join(workspaceDir, "workitems");
+    mkdirSync(items, { recursive: true });
+    writeFileSync(
+      join(items, "pbi.yaml"),
+      `apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-1
+spec:
+  fields:
+    System.Title: ok
+`,
+      "utf8",
+    );
+    const scan = scanWorkspace({ workspaceDir, templateDir });
+    expect(scan.documents.length).toBe(1);
+    expect(scan.documents[0]?.item?.metadata.localId).toBe("pbi-1");
+    expect(
+      scan.issues.some(
+        (i) => i.severity === "warning" && i.code === "template_malformed",
+      ),
+    ).toBe(true);
+  });
+});

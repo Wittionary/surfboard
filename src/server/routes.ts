@@ -47,6 +47,7 @@ export type PullRouteDeps = {
   client: AdoClient;
   db: Database;
   workspaceDir: string;
+  templateDir: string;
   pat?: string;
 };
 
@@ -77,6 +78,7 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
         client: deps.client,
         db: deps.db,
         workspaceDir: deps.workspaceDir,
+        templateDir: deps.templateDir,
         pat: deps.pat,
       },
       { selector: body.parent, confirmations: body.confirmations },
@@ -99,6 +101,7 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
         client: deps.client,
         db: deps.db,
         workspaceDir: deps.workspaceDir,
+        templateDir: deps.templateDir,
         pat: deps.pat,
       },
       { selector: body.item, confirmation: body.confirmation },
@@ -120,6 +123,7 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
         client: deps.client,
         db: deps.db,
         workspaceDir: deps.workspaceDir,
+        templateDir: deps.templateDir,
         pat: deps.pat,
       },
       {
@@ -146,6 +150,7 @@ export function registerPullRoutes(app: FastifyInstance, deps: PullRouteDeps): v
         client: deps.client,
         db: deps.db,
         workspaceDir: deps.workspaceDir,
+        templateDir: deps.templateDir,
         pat: deps.pat,
       },
       {

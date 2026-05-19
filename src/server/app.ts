@@ -108,6 +108,7 @@ export function buildAppHandle(deps: AppDeps): AppHandle {
       client: adoClient,
       db: deps.dbHandle.db,
       workspaceDir: deps.config.workspaceDir,
+      templateDir: deps.config.templateDir,
       pat: deps.config.ado?.pat,
     });
   }
