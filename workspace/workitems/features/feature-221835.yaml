@@ -36,6 +36,10 @@ spec:
     Microsoft.VSTS.Common.StateChangeDate: 2026-05-19T03:32:59.003Z
     WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column: New
     WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column.Done: false
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column: The Bench
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column.Done: false
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column: New
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column.Done: false
     System.Description: |-
       a
       line
@@ -63,6 +67,10 @@ spec:
     Microsoft.VSTS.Common.ValueArea: Business
     WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column: New
     WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column.Done: false
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column: The Bench
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column.Done: false
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column: New
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column.Done: false
     Custom.Product: Other
     System.Description: |-
       markdown
