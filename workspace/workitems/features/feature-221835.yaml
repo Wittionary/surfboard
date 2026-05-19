@@ -6,7 +6,7 @@ metadata:
 spec:
   fields:
     System.AreaPath: Alliant\Shared Services\Site Reliability Engineering
-    System.IterationPath: Alliant\SRE
+    System.IterationPath: Alliant\SRE\26Q2
     System.State: New
     System.Reason: New feature
     System.Title: witt test feature
@@ -35,15 +35,21 @@ spec:
     System.IterationPath: Alliant
     System.State: New
     System.Reason: New backlog item
-    System.Title: Updated title
+    System.Title: child 1
     Microsoft.VSTS.Common.Priority: 4
     Microsoft.VSTS.Common.StateChangeDate: 2026-05-19T03:32:59.003Z
     Microsoft.VSTS.Common.ValueArea: Business
     WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column: New
     WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column.Done: false
     Custom.Product: Other
-    System.Description: <div>a </div><div>line </div><div>separated </div><div>description </div>
-    Microsoft.VSTS.Common.AcceptanceCriteria: <div><ul><li>Bullet 1 </li><li>Bullet 2 in RTF </li> </ul> </div>
+    System.Description: |-
+      a
+      line
+      separated
+      description
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - Bullet 1
+      - Bullet 2 formerly in RTF
 ---
 apiVersion: surfboard.ado/v1
 kind: PBI
@@ -59,7 +65,7 @@ spec:
     System.IterationPath: Alliant
     System.State: New
     System.Reason: New backlog item
-    System.Title: New PBI
+    System.Title: child 2
     Microsoft.VSTS.Common.Priority: 4
     Microsoft.VSTS.Common.StateChangeDate: 2026-05-19T03:36:08.27Z
     Microsoft.VSTS.Common.ValueArea: Business
