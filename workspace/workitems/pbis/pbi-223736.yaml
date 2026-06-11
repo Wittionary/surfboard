@@ -1,0 +1,58 @@
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-223736
+  adoId: 223736
+spec:
+  parent:
+    adoId: 223731
+    localId: feature-m7t1r4nq
+  fields:
+    System.State: Done
+    System.Reason: Work finished
+    System.AssignedTo:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    System.Title: Implement Github App
+    Microsoft.VSTS.Common.Priority: 4
+    Microsoft.VSTS.Common.BacklogPriority: 1999984022
+    Microsoft.VSTS.Common.StateChangeDate: 2026-06-05T20:47:28.15Z
+    Microsoft.VSTS.Common.ClosedDate: 2026-06-05T20:47:28.15Z
+    Microsoft.VSTS.Common.ValueArea: Business
+    Microsoft.VSTS.Common.ClosedBy:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    Microsoft.VSTS.Common.ActivatedDate: 2026-05-29T16:29:48.807Z
+    Microsoft.VSTS.Common.ActivatedBy:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column: Done
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column.Done: false
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column: Done
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column.Done: false
+    Custom.HasDeliveryDate: false
+    System.Description: For automation activities Github Apps are the most secure and resilient approach. Backstage needs access to GH to catalog software, teams, and take action as automation capabilities increase.
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - Software catalog is retrieved with Github App
+      - PAT access is removed

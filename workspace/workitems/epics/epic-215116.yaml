@@ -1,0 +1,544 @@
+apiVersion: surfboard.ado/v1
+kind: Epic
+metadata:
+  localId: epic-215116
+  adoId: 215116
+spec:
+  fields:
+    System.IterationPath: Alliant\SRE
+    System.State: New
+    System.Reason: New epic
+    System.Title: "Epic: Backstage MVP Implementation"
+    Microsoft.VSTS.Common.Priority: 2
+    Microsoft.VSTS.Common.BacklogPriority: 666615028
+    Microsoft.VSTS.Common.StateChangeDate: 2026-04-08T21:43:39.767Z
+    Microsoft.VSTS.Common.ValueArea: Business
+    WEF_83C8E986A22047118CD0D33BCF578ED5_Kanban.Column: New
+    WEF_83C8E986A22047118CD0D33BCF578ED5_Kanban.Column.Done: false
+    Custom.WSJF: 0
+    WEF_4C8EED3D0A4A47D2A951ADA2FC741D5E_Kanban.Column: New
+    WEF_4C8EED3D0A4A47D2A951ADA2FC741D5E_Kanban.Column.Done: false
+    System.Description: |-
+      <h1 dir=auto style="margin-top:0px;font-weight:600;margin-bottom:16px;font-size:2em;padding-bottom:0.3em;border-bottom:1px solid rgba(255, 255, 255, 0.18);color:rgb(204, 204, 204);font-family:-apple-system, &quot;system-ui&quot;, &quot;Segoe WPC&quot;, &quot;Segoe UI&quot;, system-ui, Ubuntu, &quot;Droid Sans&quot;, sans-serif;orphans:2;widows:2;">Spotify Backstage Rollout Checklist </h1><h2 dir=auto style="margin-top:24px;font-weight:600;margin-bottom:16px;font-size:1.5em;padding-bottom:0.3em;border-bottom:1px solid rgba(255, 255, 255, 0.18);color:rgb(204, 204, 204);font-family:-apple-system, &quot;system-ui&quot;, &quot;Segoe WPC&quot;, &quot;Segoe UI&quot;, system-ui, Ubuntu, &quot;Droid Sans&quot;, sans-serif;orphans:2;widows:2;">Core Backstage Setup </h2><ul dir=auto style="margin-top:0px;margin-bottom:0.7em;color:rgb(204, 204, 204);font-family:-apple-system, &quot;system-ui&quot;, &quot;Segoe WPC&quot;, &quot;Segoe UI&quot;, system-ui, Ubuntu, &quot;Droid Sans&quot;, sans-serif;orphans:2;widows:2;"><li dir=auto>[ ] Azure Infrastructure<ul dir=auto style="margin-top:0px;margin-bottom:0px;"><li dir=auto>[ ] Hosting (ex: App Services) </li><li dir=auto>[ ] PostgreSQL </li> </ul> </li><li dir=auto>[ ] Configure authentication<ul dir=auto style="margin-top:0px;margin-bottom:0px;"><li dir=auto>[ ] SSO (Github, Okta and/or Azure AD - supports multiple):<span>&nbsp;</span><a href="https://backstage.io/docs/getting-started/config/authentication" style="color:rgb(77, 170, 252);">https://backstage.io/docs/getting-started/config/authentication</a><ul dir=auto style="margin-top:0px;margin-bottom:0.7em;"><li dir=auto>[ ] Github:<span>&nbsp;</span><a href="https://backstage.io/docs/auth/github/provider#create-an-oauth-app-on-github" style="color:rgb(77, 170, 252);">https://backstage.io/docs/auth/github/provider#create-an-oauth-app-on-github</a> </li><li dir=auto>[ ] Okta: [pending] </li><li dir=auto>[ ] Azure AD: [pending] </li> </ul> </li><li dir=auto>[ ] Organization Catalog (users, groups) </li><ul><li dir=auto>[ ] Github:&nbsp;<a href="https://backstage.io/docs/integrations/github/org/">https://backstage.io/docs/integrations/github/org/</a> </li> </ul> </ul> </li><li dir=auto>[ ] Set up CI/CD for Backstage deployment </li> </ul><h2 dir=auto style="margin-top:24px;font-weight:600;margin-bottom:16px;font-size:1.5em;padding-bottom:0.3em;border-bottom:1px solid rgba(255, 255, 255, 0.18);color:rgb(204, 204, 204);font-family:-apple-system, &quot;system-ui&quot;, &quot;Segoe WPC&quot;, &quot;Segoe UI&quot;, system-ui, Ubuntu, &quot;Droid Sans&quot;, sans-serif;orphans:2;widows:2;">Plugins </h2><ul dir=auto style="margin-top:0px;margin-bottom:0.7em;color:rgb(204, 204, 204);font-family:-apple-system, &quot;system-ui&quot;, &quot;Segoe WPC&quot;, &quot;Segoe UI&quot;, system-ui, Ubuntu, &quot;Droid Sans&quot;, sans-serif;orphans:2;widows:2;"><li dir=auto>[ ] Snyk:<span>&nbsp;</span><a href="https://github.com/snyk-tech-services/backstage-plugin-snyk/blob/main/README.md" style="color:rgb(77, 170, 252);">https://github.com/snyk-tech-services/backstage-plugin-snyk/blob/main/README.md</a> </li><li dir=auto>[ ] Sonarqube:<span>&nbsp;</span><a href="https://github.com/backstage/community-plugins/blob/main/workspaces/sonarqube/plugins/sonarqube/README.md" style="color:rgb(77, 170, 252);">https://github.com/backstage/community-plugins/blob/main/workspaces/sonarqube/plugins/sonarqube/README.md</a> </li> </ul><h2 dir=auto style="margin-top:24px;font-weight:600;margin-bottom:16px;font-size:1.5em;padding-bottom:0.3em;border-bottom:1px solid rgba(255, 255, 255, 0.18);color:rgb(204, 204, 204);font-family:-apple-system, &quot;system-ui&quot;, &quot;Segoe WPC&quot;, &quot;Segoe UI&quot;, system-ui, Ubuntu, &quot;Droid Sans&quot;, sans-serif;orphans:2;widows:2;"> </h2><h2 dir=auto style="box-sizing:border-box;color:rgb(204, 204, 204);margin-top:24px;margin-bottom:16px;font-size:1.5em;padding-bottom:0.3em;border-bottom:1px solid rgba(255, 255, 255, 0.18);font-family:-apple-system, &quot;system-ui&quot;, &quot;Segoe WPC&quot;, &quot;Segoe UI&quot;, system-ui, Ubuntu, &quot;Droid Sans&quot;, sans-serif;"><span style="box-sizing:border-box;">Plugin: RBAC (Role-Based Access Control)</span> </h2><ul dir=auto style="box-sizing:border-box;padding:0px 0px 0px 40px;color:rgb(204, 204, 204);font-size:14px;font-weight:400;margin-top:0px;margin-bottom:0.7em;font-family:-apple-system, &quot;system-ui&quot;, &quot;Segoe WPC&quot;, &quot;Segoe UI&quot;, system-ui, Ubuntu, &quot;Droid Sans&quot;, sans-serif;"><li dir=auto style="box-sizing:border-box;">[ ] Review RBAC plugin documentation:<span style="box-sizing:border-box;">&nbsp;</span><a href="https://backstage.spotify.com/docs/plugins/rbac/core-concepts" style="box-sizing:border-box;color:rgb(77, 170, 252);text-decoration:underline;cursor:pointer;">https://backstage.spotify.com/docs/plugins/rbac/core-concepts</a> </li><li dir=auto style="box-sizing:border-box;">[ ] Install RBAC plugin in Backstage:<span style="box-sizing:border-box;">&nbsp;</span><a href="https://backstage.spotify.com/docs/plugins/rbac/setup-and-installation" style="box-sizing:border-box;color:rgb(77, 170, 252);text-decoration:underline;cursor:pointer;">https://backstage.spotify.com/docs/plugins/rbac/setup-and-installation</a> </li><li dir=auto style="box-sizing:border-box;">[ ] Define roles and permissions model </li><li dir=auto style="box-sizing:border-box;">[ ] Integrate RBAC with authentication provider </li><li dir=auto style="box-sizing:border-box;">[ ] Test RBAC enforcement for different user roles </li><li dir=auto style="box-sizing:border-box;">[ ] Document RBAC usage and role assignment process </li> </ul><br> <div><ul><li>local dev spin-up and workflow </li> </ul><div><b>Usable Software Catalog</b> </div><div><ul><li><strong>Entity definition standard</strong><ul><li>
+      What does a “service” require? owner, system, lifecycle, repo, etc.
+      </li> </ul> </li><li><strong>One ingestion path that works end-to-end</strong><ul><li>
+      GitHub catalog-info.yaml discovery </li> </ul> </li><li><strong>Ownership model that resolves cleanly</strong><ul><li>
+      Groups map cleanly to teams
+      </li> </ul> </li><li><strong>Basic validation</strong><ul><li>
+      Prevent garbage entities from polluting the catalog </li> </ul> </li> </ul><br> </div><div><br> </div><div><div><b>Basic operations</b> </div><ul><li><strong>Upgrade strategy</strong><ul><li>Who upgrades and how?
+      </li> </ul> </li><li><strong>Secrets/config management</strong><ul><li>
+      Especially for plugins and auth providers
+      </li> </ul> </li><li><strong>Basic observability</strong><ul><li>
+      Logs accessible
+      </li><li>
+      Health checks </li> </ul> </li> </ul> </div><div><br> </div><div><strong>Scaffolder / Software Templates</strong><br> </div><div>Without templates, Backstage becomes a passive dashboard instead of an entry point into workflows.<br> </div><div><ul><li>Install Scaffolder plugin
+      </li><li>
+      Create 1 template (even if basic)
+      </li><li>
+      Hook into GitHub repo creation
+      </li><li>
+      Auto-register in catalog </li> </ul><br> </div> </div>
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      <div><p>A developer should be able to: </p><ol><li>
+      Log in with SSO
+      </li><li>
+      Find their team and services in the catalog
+      </li><li>
+      Click a service and see useful, trusted info
+      </li><li>Create a new service via a template </li> </ol><br> </div>
+---
+apiVersion: surfboard.ado/v1
+kind: Feature
+metadata:
+  localId: feature-a3f8k2p9
+  adoId: 223728
+spec:
+  parent:
+    localId: epic-215116
+    adoId: 215116
+  fields:
+    System.Title: Azure Infrastructure Provisioning
+    System.Description: Set up the cloud infrastructure required to host Backstage, including compute (App Services) and a managed PostgreSQL database.
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - Backstage application is deployed and reachable via App Services.
+      - PostgreSQL instance is provisioned and connected to Backstage.
+      - Infrastructure is defined as code (IaC) and stored in version control.
+      - Environments (e.g., dev/prod) are accounted for in the design.
+---
+apiVersion: surfboard.ado/v1
+kind: Feature
+metadata:
+  localId: feature-m7t1r4nq
+  adoId: 223731
+spec:
+  parent:
+    adoId: 215116
+    localId: epic-215116
+  fields:
+    System.State: In Progress
+    System.Reason: Implementation started
+    System.AssignedTo:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    System.Title: Authentication & Organization Catalog
+    Microsoft.VSTS.Common.Priority: 4
+    Microsoft.VSTS.Common.StateChangeDate: 2026-05-21T16:29:23.11Z
+    Microsoft.VSTS.Common.ActivatedDate: 2026-05-21T16:29:23.11Z
+    Microsoft.VSTS.Common.ActivatedBy:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    WEF_E581BB8FF03A472C94C1D889A4B38898_Kanban.Column: New
+    WEF_E581BB8FF03A472C94C1D889A4B38898_Kanban.Column.Done: false
+    WEF_754C0B46226E498E9FB3B66CF0B527A9_Kanban.Column: In Progress
+    WEF_754C0B46226E498E9FB3B66CF0B527A9_Kanban.Column.Done: false
+    WEF_6FC02DE26073442396CD4E65C003C170_Kanban.Column: In Progress
+    WEF_6FC02DE26073442396CD4E65C003C170_Kanban.Column.Done: false
+    Custom.WSJF: 0
+    System.Description: Configure SSO via GitHub, Okta, and/or Azure AD, and sync user/group data into the Backstage catalog so ownership resolves correctly.
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - At least one SSO provider (GitHub) is fully functional for login.
+      - Okta and Azure AD are stubbed or documented as pending with a clear path to enable.
+      - Users and groups from GitHub Org are ingested into the catalog.
+      - Unauthenticated users cannot access the Backstage instance.
+---
+apiVersion: surfboard.ado/v1
+kind: Feature
+metadata:
+  localId: feature-b9w5j6xz
+  adoId: 223729
+spec:
+  parent:
+    localId: epic-215116
+    adoId: 215116
+  fields:
+    System.Title: CI/CD Pipeline for Backstage
+    System.Description: Establish a deployment pipeline so changes to Backstage itself (config, plugins, templates) can be shipped reliably without manual intervention.
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - A CI/CD pipeline exists that builds and deploys Backstage to Azure on merge to main.
+      - Pipeline includes a health check or smoke test post-deploy.
+      - Secrets and config are injected at deploy time (not hardcoded).
+      - Local dev spin-up is documented and works without cloud dependencies.
+---
+apiVersion: surfboard.ado/v1
+kind: Feature
+metadata:
+  localId: feature-h2c8v0ld
+  adoId: 223730
+spec:
+  parent:
+    localId: epic-215116
+    adoId: 215116
+  fields:
+    System.Title: Security Plugin Integrations (Snyk & SonarQube)
+    System.Description: Install and configure the Snyk and SonarQube Backstage plugins so security and code quality data surfaces in the catalog alongside services.
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - Snyk plugin is installed and displays vulnerability data for at least one registered service.
+      - SonarQube plugin is installed and displays code quality metrics for at least one registered service.
+      - Both plugins are gated appropriately via RBAC (read-only for most users).
+      - Plugin configuration (API tokens, endpoints) is managed via secrets, not hardcoded.
+---
+apiVersion: surfboard.ado/v1
+kind: Feature
+metadata:
+  localId: feature-q4s7e1gy
+  adoId: 223733
+spec:
+  parent:
+    localId: epic-215116
+    adoId: 215116
+  fields:
+    System.Title: Role-Based Access Control (RBAC)
+    System.Description: Install and configure the Spotify RBAC plugin, define the roles/permissions model, and integrate it with the authentication provider.
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - RBAC plugin is installed and active.
+      - At minimum two roles are defined (e.g., admin, viewer) with distinct permission sets.
+      - RBAC integrates with the configured SSO/auth provider — role assignment is driven by group membership.
+      - Enforcement is verified: a viewer cannot perform admin actions.
+      - Role assignment and RBAC usage is documented for the team.
+---
+apiVersion: surfboard.ado/v1
+kind: Feature
+metadata:
+  localId: feature-u6d3f9aw
+  adoId: 223734
+spec:
+  parent:
+    localId: epic-215116
+    adoId: 215116
+  fields:
+    System.Title: Usable Software Catalog
+    System.Description: Define entity standards, establish GitHub-based catalog discovery, and validate that the catalog is populated with clean, ownership-resolved entries.
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - Entity definition standard is documented (required fields for a "service": owner, system, lifecycle, repo, etc.).
+      - GitHub catalog-info.yaml discovery is configured and working end-to-end.
+      - Groups from GitHub Org map cleanly to teams and resolve as owners on entities.
+      - Basic validation rules are in place to reject malformed or incomplete entities.
+      - At least 3 real services are registered and visible in the catalog.
+---
+apiVersion: surfboard.ado/v1
+kind: Feature
+metadata:
+  localId: feature-y0n5k8rt
+  adoId: 223735
+spec:
+  parent:
+    adoId: 215116
+    localId: epic-215116
+  fields:
+    System.State: In Progress
+    System.Reason: Implementation started
+    System.AssignedTo:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    System.Title: Scaffolder & Software Templates
+    Microsoft.VSTS.Common.Priority: 4
+    Microsoft.VSTS.Common.StateChangeDate: 2026-06-10T19:23:00.277Z
+    Microsoft.VSTS.Common.ActivatedDate: 2026-06-10T19:23:00.277Z
+    Microsoft.VSTS.Common.ActivatedBy:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    WEF_E581BB8FF03A472C94C1D889A4B38898_Kanban.Column: New
+    WEF_E581BB8FF03A472C94C1D889A4B38898_Kanban.Column.Done: false
+    WEF_754C0B46226E498E9FB3B66CF0B527A9_Kanban.Column: In Progress
+    WEF_754C0B46226E498E9FB3B66CF0B527A9_Kanban.Column.Done: false
+    WEF_6FC02DE26073442396CD4E65C003C170_Kanban.Column: In Progress
+    WEF_6FC02DE26073442396CD4E65C003C170_Kanban.Column.Done: false
+    Custom.WSJF: 0
+    System.Description: Install the Scaffolder plugin, create at least one working template, and wire it to GitHub repo creation with automatic catalog registration.
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - Scaffolder plugin is installed and accessible in the UI.
+      - At least one template exists that creates a new GitHub repository with a standard structure.
+      - Newly created repos include a catalog-info.yaml and are automatically registered in the catalog.
+      - Template is accessible to and usable by non-admin users.
+---
+apiVersion: surfboard.ado/v1
+kind: Feature
+metadata:
+  localId: feature-p1m4x7cj
+  adoId: 223732
+spec:
+  parent:
+    localId: epic-215116
+    adoId: 215116
+  fields:
+    System.Title: Operational Readiness
+    System.Description: Establish the practices needed to keep Backstage healthy over time — upgrade ownership, secrets management, and basic observability.
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - Upgrade strategy is documented: who owns it, what the process is, and how often it should happen.
+      - Secrets and plugin config are managed through a defined secrets management approach (e.g., Azure Key Vault).
+      - Application logs are accessible to the team (e.g., via Azure Monitor or equivalent).
+      - A health check endpoint is configured and monitored.
+---
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-k7m2p9rn
+  adoId: 224722
+spec:
+  parent:
+    adoId: 223731
+    localId: feature-m7t1r4nq
+  fields:
+    System.State: Done
+    System.Reason: Work finished
+    System.AssignedTo:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    System.Title: Dynamic User Catalog
+    Microsoft.VSTS.Common.Priority: 4
+    Microsoft.VSTS.Common.BacklogPriority: 1999989347
+    Microsoft.VSTS.Common.StateChangeDate: 2026-06-05T20:48:53.38Z
+    Microsoft.VSTS.Common.ClosedDate: 2026-06-05T20:48:53.38Z
+    Microsoft.VSTS.Common.ClosedBy:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    Microsoft.VSTS.Common.ActivatedDate: 2026-05-29T14:40:25.95Z
+    Microsoft.VSTS.Common.ActivatedBy:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column: New
+    WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column.Done: false
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column: Done
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column.Done: false
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column: Done
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column.Done: false
+    Custom.HasDeliveryDate: false
+    System.Description: Ensure the Backstage user catalog is populated dynamically from the configured authentication provider(s) rather than managed manually, so that the catalog stays in sync with the organization's actual user and group membership.
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - Users and groups are automatically ingested from the configured auth provider (e.g., GitHub Org).
+      - New users who authenticate are reflected in the catalog without manual intervention.
+      - Removed or deprovisioned users are no longer present in the catalog after the next sync.
+      - Sync frequency is configured and documented.
+---
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-t4x8j1wc
+  adoId: 224723
+spec:
+  parent:
+    adoId: 223731
+    localId: feature-m7t1r4nq
+  fields:
+    System.State: Done
+    System.Reason: Work finished
+    System.AssignedTo:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    System.Title: Usernames Transformed into Human-Readable Display Names
+    Microsoft.VSTS.Common.Priority: 4
+    Microsoft.VSTS.Common.BacklogPriority: 1999996450
+    Microsoft.VSTS.Common.StateChangeDate: 2026-06-05T20:50:26.103Z
+    Microsoft.VSTS.Common.ClosedDate: 2026-06-05T20:50:26.103Z
+    Microsoft.VSTS.Common.ClosedBy:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column: New
+    WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column.Done: false
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column: Done
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column.Done: false
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column: Done
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column.Done: false
+    Custom.HasDeliveryDate: false
+    System.Description: Ensure that user identities surfaced throughout Backstage (catalog ownership, scaffolder, etc.) display as readable names (e.g., &quot;Jane Smith&quot;) rather than raw identifiers like machine usernames, email prefixes, or provider-specific slugs.
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - Display names are populated from the auth provider profile (e.g., name field from GitHub or Okta).
+      - Ownership entries in the catalog show human-readable names rather than raw identifiers.
+      - Fallback behavior is defined and documented for users who have no display name set on the provider.
+      - Transformation logic is consistent across all configured auth providers.
+---
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-e5q3n6fy
+  adoId: 224721
+spec:
+  parent:
+    adoId: 223731
+    localId: feature-m7t1r4nq
+  fields:
+    System.State: Committed
+    System.Reason: Commitment made by the team
+    System.AssignedTo:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    System.Title: Authentication Setup Documentation
+    Microsoft.VSTS.Common.Priority: 4
+    Microsoft.VSTS.Common.BacklogPriority: 1999985797
+    Microsoft.VSTS.Common.StateChangeDate: 2026-06-05T20:51:44.05Z
+    Microsoft.VSTS.Common.ActivatedDate: 2026-06-05T20:51:44.05Z
+    Microsoft.VSTS.Common.ActivatedBy:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column: New
+    WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column.Done: false
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column: In Development
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column.Done: false
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column: Committed
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column.Done: false
+    Custom.HasDeliveryDate: false
+    System.Description: <div>Produce clear, team-facing documentation covering how authentication is configured in Backstage, and how to troubleshoot common issues — so the setup is not dependent on a single person's knowledge. </div>
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - Documentation covers all currently configured auth providers (GitHub).
+      - Secrets and credential management for auth providers is explained. 
+      - Common failure modes and troubleshooting steps are included. 
+      - Documentation is stored in a location accessible to the whole team (e.g., repo README, Confluence, or Backstage TechDocs).
+---
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-r3h7w2kx
+  adoId: 226296
+spec:
+  parent:
+    adoId: 223735
+    localId: feature-y0n5k8rt
+  fields:
+    System.State: Committed
+    System.Reason: Commitment made by the team
+    System.AssignedTo:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    System.Title: Install and Configure Scaffolder Plugin
+    Microsoft.VSTS.Common.Priority: 4
+    Microsoft.VSTS.Common.StateChangeDate: 2026-06-10T19:24:46.79Z
+    Microsoft.VSTS.Common.ActivatedDate: 2026-06-10T19:24:46.79Z
+    Microsoft.VSTS.Common.ActivatedBy:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column: New
+    WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column.Done: false
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column: In Development
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column.Done: false
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column: Committed
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column.Done: false
+    Custom.HasDeliveryDate: false
+    System.Description: Add the Scaffolder plugin to the Backstage instance and verify it is accessible and operational, including any backend scaffolder tasks service configuration needed to support template execution.
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - Scaffolder plugin (frontend and backend) is installed and enabled.
+      - The &quot;/create&quot; route is accessible in the Backstage UI.
+      - Scaffolder task execution infrastructure is confirmed working (e.g., tasks run and report status).
+      - No regressions introduced to existing plugins or catalog behavior.
+---
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-n1v6t4qm
+  adoId: 226295
+spec:
+  parent:
+    localId: feature-y0n5k8rt
+    adoId: 223735
+  fields:
+    System.Title: Create a Baseline Service Template
+    System.Description: Author at least one working Scaffolder template that reflects Alliant's standard for a new service — covering repository structure, required files, and ownership metadata — so engineers have a validated starting point for creating new services.
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - Template is stored in version control and registered in the Backstage catalog.
+      - Template prompts for required inputs: service name, owner (team/group), system, and lifecycle.
+      - Generated output includes a standard directory structure and a populated catalog-info.yaml.
+      - Template renders correctly in the Scaffolder UI with no errors.
+---
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-j9c5e8za
+  adoId: 226294
+spec:
+  parent:
+    localId: feature-y0n5k8rt
+    adoId: 223735
+  fields:
+    System.Title: Hook Template into GitHub Repository Creation
+    System.Description: Wire the Scaffolder template to GitHub so that executing the template creates a real repository in the appropriate GitHub organization with the generated contents committed.
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - Template execution creates a new repository in the target GitHub org (e.g., goalliant or alliant-platform).
+      - Repository is created with the correct name, visibility, and initial contents as defined by the template.
+      - GitHub App credentials (not a PAT) are used for repo creation.
+      - Failure during repo creation surfaces a clear error in the Scaffolder UI rather than silently failing.
+---
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-f2b0p7ys
+  adoId: 226293
+spec:
+  parent:
+    localId: feature-y0n5k8rt
+    adoId: 223735
+  fields:
+    System.Title: Auto-Register New Services in the Catalog
+    System.Description: Ensure that repositories created via the Scaffolder template are automatically registered in the Backstage catalog upon creation, so the service is immediately discoverable without a manual catalog entry.
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - Upon successful template execution, the new service appears in the Backstage catalog.
+      - Registration uses the catalog-info.yaml committed to the new repo.
+      - The registered entity has correct ownership, system, and lifecycle fields populated from template inputs.
+      - Re-running catalog ingestion does not create duplicate entries.
+---
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-d4u9g1lw
+  adoId: 226292
+spec:
+  parent:
+    localId: feature-y0n5k8rt
+    adoId: 223735
+  fields:
+    System.Title: Scaffolder Access Control and Permissions
+    System.Description: Ensure the Scaffolder is accessible to the appropriate users and that template execution is gated correctly — engineers can create services, but template authoring and registration is restricted to appropriate roles.
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - All authenticated users can browse and execute templates.
+      - Template registration (adding new templates to the catalog) is restricted to admin or platform roles via RBAC.
+      - Scaffolder actions respect the permissions framework already configured for the instance.
+      - Permissions behavior is documented for the team.
