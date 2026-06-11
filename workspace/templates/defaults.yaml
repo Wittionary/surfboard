@@ -6,7 +6,7 @@ spec:
   global:
     fields:
       System.AreaPath: Alliant\Shared Services\Site Reliability Engineering
-      System.IterationPath: Alliant\SRE\26Q2
+      System.IterationPath: Alliant\SRE\26Q3
       System.Description: |-
         This is the default description for all work items.
       Microsoft.VSTS.Common.AcceptanceCriteria: |-

@@ -19,6 +19,7 @@ spec:
     - Microsoft.VSTS.Common.Priority
     - Microsoft.VSTS.Common.ValueArea
     - Microsoft.VSTS.Common.BusinessValue
+    - Microsoft.VSTS.Common.AcceptanceCriteria
     - Custom.Product
     - Custom.BenefitHypothesis
     - Custom.WSJF
