@@ -73,7 +73,16 @@
       "Bash(curl -s http://127.0.0.1:3000/assets/styles.css)",
       "Bash(curl -s http://127.0.0.1:3000/api/health)",
       "Bash(pkill -f 'bun run src/server/index.ts')",
-      "Bash(xargs ls *)"
+      "Bash(xargs ls *)",
+      "mcp__plugin_context-mode_context-mode__ctx_batch_execute",
+      "mcp__plugin_context-mode_context-mode__ctx_search",
+      "Bash(git -C /Users/jallen4/git/surfboard ls-files)",
+      "Bash(git *)",
+      "mcp__plugin_context-mode_context-mode__ctx_execute",
+      "Bash(awk '{print $6, $7, $8, $9, $10}')",
+      "Bash(docker compose *)",
+      "Bash(SURFBOARD_PORT=3555 docker compose up -d)",
+      "Bash(SURFBOARD_PORT=3555 docker compose down)"
     ]
   }
 }

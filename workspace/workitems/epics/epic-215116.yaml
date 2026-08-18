@@ -431,8 +431,9 @@ spec:
     adoId: 223735
     localId: feature-y0n5k8rt
   fields:
-    System.State: Committed
-    System.Reason: Commitment made by the team
+    System.IterationPath: Alliant\SRE\26Q2
+    System.State: Done
+    System.Reason: Work finished
     System.AssignedTo:
       displayName: Witt Allen
       url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
@@ -445,8 +446,70 @@ spec:
       descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
     System.Title: Install and Configure Scaffolder Plugin
     Microsoft.VSTS.Common.Priority: 4
-    Microsoft.VSTS.Common.StateChangeDate: 2026-06-10T19:24:46.79Z
+    Microsoft.VSTS.Common.StateChangeDate: 2026-06-10T20:42:42.687Z
+    Microsoft.VSTS.Common.ClosedDate: 2026-06-10T20:42:42.687Z
+    Microsoft.VSTS.Common.ClosedBy:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
     Microsoft.VSTS.Common.ActivatedDate: 2026-06-10T19:24:46.79Z
+    Microsoft.VSTS.Common.ActivatedBy:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column: New
+    WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column.Done: false
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column: Done
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column.Done: false
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column: Done
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column.Done: false
+    Custom.HasDeliveryDate: false
+    System.Description: Add the Scaffolder plugin to the Backstage instance and verify it is accessible and operational, including any backend scaffolder tasks service configuration needed to support template execution.
+    Microsoft.VSTS.Common.AcceptanceCriteria: |-
+      - Scaffolder plugin (frontend and backend) is installed and enabled.
+      - The &quot;/create&quot; route is accessible in the Backstage UI.
+      - Scaffolder task execution infrastructure is confirmed working (e.g., tasks run and report status).
+      - No regressions introduced to existing plugins or catalog behavior.
+---
+apiVersion: surfboard.ado/v1
+kind: PBI
+metadata:
+  localId: pbi-n1v6t4qm
+  adoId: 226295
+spec:
+  parent:
+    adoId: 223735
+    localId: feature-y0n5k8rt
+  fields:
+    System.State: Committed
+    System.Reason: Commitment made by the team
+    System.AssignedTo:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    System.Title: Create a Baseline Service Template
+    Microsoft.VSTS.Common.Priority: 4
+    Microsoft.VSTS.Common.BacklogPriority: 1999984022
+    Microsoft.VSTS.Common.StateChangeDate: 2026-06-11T14:53:28.83Z
+    Microsoft.VSTS.Common.ActivatedDate: 2026-06-11T14:53:28.83Z
     Microsoft.VSTS.Common.ActivatedBy:
       displayName: Witt Allen
       url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
@@ -464,29 +527,11 @@ spec:
     WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column: Committed
     WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column.Done: false
     Custom.HasDeliveryDate: false
-    System.Description: Add the Scaffolder plugin to the Backstage instance and verify it is accessible and operational, including any backend scaffolder tasks service configuration needed to support template execution.
-    Microsoft.VSTS.Common.AcceptanceCriteria: |-
-      - Scaffolder plugin (frontend and backend) is installed and enabled.
-      - The &quot;/create&quot; route is accessible in the Backstage UI.
-      - Scaffolder task execution infrastructure is confirmed working (e.g., tasks run and report status).
-      - No regressions introduced to existing plugins or catalog behavior.
----
-apiVersion: surfboard.ado/v1
-kind: PBI
-metadata:
-  localId: pbi-n1v6t4qm
-  adoId: 226295
-spec:
-  parent:
-    localId: feature-y0n5k8rt
-    adoId: 223735
-  fields:
-    System.Title: Create a Baseline Service Template
     System.Description: Author at least one working Scaffolder template that reflects Alliant's standard for a new service — covering repository structure, required files, and ownership metadata — so engineers have a validated starting point for creating new services.
     Microsoft.VSTS.Common.AcceptanceCriteria: |-
       - Template is stored in version control and registered in the Backstage catalog.
       - Template prompts for required inputs: service name, owner (team/group), system, and lifecycle.
-      - Generated output includes a standard directory structure and a populated catalog-info.yaml.
+      - Generated output includes a standard directory structure and a populated catalog-info.yaml. 
       - Template renders correctly in the Scaffolder UI with no errors.
 ---
 apiVersion: surfboard.ado/v1
@@ -496,10 +541,54 @@ metadata:
   adoId: 226294
 spec:
   parent:
-    localId: feature-y0n5k8rt
     adoId: 223735
+    localId: feature-y0n5k8rt
   fields:
+    System.IterationPath: Alliant\SRE\26Q2
+    System.State: Done
+    System.Reason: Work finished
+    System.AssignedTo:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
     System.Title: Hook Template into GitHub Repository Creation
+    Microsoft.VSTS.Common.Priority: 4
+    Microsoft.VSTS.Common.StateChangeDate: 2026-06-11T16:31:15.987Z
+    Microsoft.VSTS.Common.ClosedDate: 2026-06-11T16:31:15.987Z
+    Microsoft.VSTS.Common.ClosedBy:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    Microsoft.VSTS.Common.ActivatedDate: 2026-06-11T14:46:55.593Z
+    Microsoft.VSTS.Common.ActivatedBy:
+      displayName: Witt Allen
+      url: https://spsprodeus22.vssps.visualstudio.com/Ad28710ae-e56f-4587-acd3-4eb3213e55cd/_apis/Identities/2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      _links:
+        avatar:
+          href: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      id: 2ffba6d4-ef73-63a9-94ad-00391b03ea23
+      uniqueName: Witt.Allen@alliant.com
+      imageUrl: https://dev.azure.com/goalliant/_apis/GraphProfile/MemberAvatars/aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+      descriptor: aad.MmZmYmE2ZDQtZWY3My03M2E5LTk0YWQtMDAzOTFiMDNlYTIz
+    WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column: New
+    WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column.Done: false
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column: Done
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column.Done: false
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column: Done
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column.Done: false
+    Custom.HasDeliveryDate: false
     System.Description: Wire the Scaffolder template to GitHub so that executing the template creates a real repository in the appropriate GitHub organization with the generated contents committed.
     Microsoft.VSTS.Common.AcceptanceCriteria: |-
       - Template execution creates a new repository in the target GitHub org (e.g., goalliant or alliant-platform).
@@ -514,10 +603,23 @@ metadata:
   adoId: 226293
 spec:
   parent:
-    localId: feature-y0n5k8rt
     adoId: 223735
+    localId: feature-y0n5k8rt
   fields:
+    System.IterationPath: Alliant\SRE\26Q2
+    System.State: New
+    System.Reason: New backlog item
     System.Title: Auto-Register New Services in the Catalog
+    Microsoft.VSTS.Common.Priority: 4
+    Microsoft.VSTS.Common.BacklogPriority: 1999986213
+    Microsoft.VSTS.Common.StateChangeDate: 2026-06-10T18:43:55.577Z
+    WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column: New
+    WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column.Done: false
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column: The Bench
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column.Done: false
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column: New
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column.Done: false
+    Custom.HasDeliveryDate: false
     System.Description: Ensure that repositories created via the Scaffolder template are automatically registered in the Backstage catalog upon creation, so the service is immediately discoverable without a manual catalog entry.
     Microsoft.VSTS.Common.AcceptanceCriteria: |-
       - Upon successful template execution, the new service appears in the Backstage catalog.
@@ -532,10 +634,23 @@ metadata:
   adoId: 226292
 spec:
   parent:
-    localId: feature-y0n5k8rt
     adoId: 223735
+    localId: feature-y0n5k8rt
   fields:
+    System.IterationPath: Alliant\SRE\26Q2
+    System.State: New
+    System.Reason: New backlog item
     System.Title: Scaffolder Access Control and Permissions
+    Microsoft.VSTS.Common.Priority: 4
+    Microsoft.VSTS.Common.BacklogPriority: 1999986005
+    Microsoft.VSTS.Common.StateChangeDate: 2026-06-10T18:43:52.81Z
+    WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column: New
+    WEF_70E7AA846FE843908BE008120B3355F7_Kanban.Column.Done: false
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column: The Bench
+    WEF_1E4AFA21535B42A4B237298C8BFB0103_Kanban.Column.Done: false
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column: New
+    WEF_FE34391F1DF4457EB53E3C6833DAB924_Kanban.Column.Done: false
+    Custom.HasDeliveryDate: false
     System.Description: Ensure the Scaffolder is accessible to the appropriate users and that template execution is gated correctly — engineers can create services, but template authoring and registration is restricted to appropriate roles.
     Microsoft.VSTS.Common.AcceptanceCriteria: |-
       - All authenticated users can browse and execute templates.
