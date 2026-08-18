@@ -148,7 +148,7 @@ export function buildAppHandle(deps: AppDeps): AppHandle {
 // SURFBOARD_WATCH_POLLING: "0"/"false"/"off" forces native filesystem events;
 // any other value (including unset) keeps the FileWatcher default of polling
 // on, which is the correct mode for container bind mounts on Docker Desktop.
-function resolveWatcherPolling(): { usePolling?: boolean } {
+export function resolveWatcherPolling(): { usePolling?: boolean } {
   const raw = process.env.SURFBOARD_WATCH_POLLING?.trim().toLowerCase();
   if (raw === "0" || raw === "false" || raw === "off") {
     return { usePolling: false };

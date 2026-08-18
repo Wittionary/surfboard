@@ -15,8 +15,9 @@ The container packages the Bun runtime, the built static frontend, and the serve
 - `chokidar` polling stays on by default (preserving today's `FileWatcher` behavior — no regression for existing host dev). `SURFBOARD_WATCH_POLLING=0` (or `false`/`off`) is the opt-out switch that turns on native filesystem events; useful for `bun run dev` on macOS/Linux where fsevents/inotify are reliable. The container ships with `SURFBOARD_WATCH_POLLING=1` set explicitly for documentation, even though it has no functional effect over the default.
 - ADO PAT and other secrets are passed through `.env` / `env_file:` only. Never baked into the image, never committed. A `.env.example` documents the variables.
 - Image is built locally; no registry push, no CI publish step in MVP scope.
-- Container image is intentionally read-only for `/app`. Only `/workspace` (bind mount) and `/tmp` are writable.
+- Container image is intentionally read-only for `/app`. Only `/workspace` (bind mount) and `/tmp` are writable. Implemented as `read_only: true` + `tmpfs: [/tmp]` in `docker-compose.yml`, and mirrored in `verify-container.ts` so the guarantee is checked rather than assumed. Bind mounts are unaffected by `read_only`, so host-side YAML authoring is untouched.
 - Compose profile `dev` is **out of scope**. Local dev keeps using `bun run dev` directly against the host. Mixing both is not supported.
+- **Podman is a supported runtime**, not just Docker (revised 2026-08-18 — see Verification results). `verify-container.ts` resolves a real binary via `SURFBOARD_CONTAINER_CLI`, else probes `podman` then `docker`; it cannot rely on a `docker`→`podman` shell alias, because aliases do not apply to spawned processes.
 
 ## Phase 1 - Baseline Dockerfile
 
@@ -195,6 +196,32 @@ bun run verify:container
 - Publishing an image to a registry (Docker Hub, GHCR, internal). Local build only.
 - A `dev` compose profile that mounts source for live reload inside the container. Local dev keeps using `bun run dev` on the host.
 - Multi-arch builds. The default `docker build` on the user's machine produces the right arch for that machine.
-- Rootless Docker / Podman compatibility audit. Should work, but not validated here.
 - Windows-specific path quirks beyond what bind mounts already paper over.
 - Reverse proxy / TLS / auth. Surfboard is a single-user local tool; exposing it beyond localhost is out of scope.
+- CI execution of `verify:container`. The repo has no workflows (`.github/` holds skills only); the script is CI-ready but nothing is wired.
+
+## Verification results (2026-08-18)
+
+Executed on macOS with **rootless Podman 5.8.5** (compose via the external `docker-compose` v5.1.3 provider). Every phase passed; the items below are the ones that were not merely re-read but actually exercised.
+
+| Phase | Criterion | Result |
+|---|---|---|
+| 1 | Image builds; no `.git` / `tests/` / `.env*` inside; non-root | Pass — `/app` holds only `bun.lock dist node_modules package.json scripts src tsconfig.json`; image 284 MB |
+| 2 | Compose boots, workspace + SQLite resolve to the bind mount | Pass — `workspace.path=/workspace`, cache at `workspace/.surfboard/surfboard.db` owned by the host user; `git status` clean after up/down |
+| 3 | Host edit detected inside the container | Pass — host create, edit, and delete each produced one `workspace refreshed` |
+| 4 | `compose down` under 5 s, exit 0, no SIGKILL | Pass — 0.45–0.54 s |
+| 4 | `SIGKILL` then restart reopens SQLite cleanly | Pass — `app=ok sqlite=ok watcher=ok workspace=ok` |
+| 6 | `bun run verify:container` exits 0 | Pass |
+| — | `read_only: true`: `/app` immutable, `/tmp` writable, host authoring unaffected | Pass |
+
+### Defects found and fixed during verification
+
+1. **The image had never built.** The runtime stage's `useradd --uid 1000` always failed — the base image's `bun` user already owns uid/gid 1000. Now renames the incumbent on collision.
+2. **`env_file` silently overrode image `ENV`.** A `SURFBOARD_PORT` in `.env` moved the listener off the published target, and `ADO_WORKSPACE_DIR=./workspace` made the container index `/app/workspace` instead of the bind mount — wrong data, no error. `SURFBOARD_PORT`, `ADO_WORKSPACE_DIR`, and `ADO_TEMPLATE_DIR` are now pinned in compose's `environment:`, which takes precedence. `SURFBOARD_PORT` in `.env` selects the host port only.
+3. **The file watcher never ran in production.** `startWatcher` was passed only by tests, so `src/server/index.ts` built the app without one — on `main` too, making Phase 3 dead code and contradicting spec §120/§888. Now `startWatcher: true`.
+4. **`verify-container.ts` skipped the watcher assertion when absent** (`if (report.watcher && …)`), which is what let #3 go unnoticed. Now asserts presence.
+5. **`.env.example` was never updated** with `HOST_UID` / `HOST_GID` / `SURFBOARD_PORT`, despite the README instructing users to set them.
+
+### Environment note
+
+The Podman machine's clock can drift behind the host after laptop sleep (observed: 5 days). `podman logs --since <host timestamp>` then returns nothing and reads as "the watcher never fired." Use event-count deltas, or `podman machine stop && podman machine start`.

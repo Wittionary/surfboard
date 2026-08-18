@@ -94,6 +94,11 @@ async function main(): Promise<void> {
         "-d",
         "--name",
         CONTAINER_NAME,
+        // Mirror docker-compose.yml: the app must boot with immutable image
+        // layers, writing only to the bind mount and /tmp.
+        "--read-only",
+        "--tmpfs",
+        "/tmp",
         "-p",
         `127.0.0.1:${hostPort}:3000`,
         "-v",

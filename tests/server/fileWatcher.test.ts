@@ -3,7 +3,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { FileWatcher } from "../../src/server/fileWatcher.ts";
-import { buildAppHandle } from "../../src/server/app.ts";
+import { buildAppHandle, resolveWatcherPolling } from "../../src/server/app.ts";
 import { loadConfig } from "../../src/server/config.ts";
 import { openDb, type DbHandle } from "../../src/server/db.ts";
 
@@ -168,5 +168,35 @@ spec:
     expect(body.watcher).toBeDefined();
     expect(body.watcher.status).toBe("ok");
     await handle.fastify.close();
+  });
+});
+
+describe("resolveWatcherPolling", () => {
+  const original = process.env.SURFBOARD_WATCH_POLLING;
+  afterEach(() => {
+    if (original === undefined) delete process.env.SURFBOARD_WATCH_POLLING;
+    else process.env.SURFBOARD_WATCH_POLLING = original;
+  });
+
+  // Opting out must be explicit: only these three spellings turn polling off.
+  // Everything else — including unset — keeps polling, which is what makes
+  // container bind mounts work.
+  for (const value of ["0", "false", "off", "OFF", " False "]) {
+    test(`"${value}" disables polling`, () => {
+      process.env.SURFBOARD_WATCH_POLLING = value;
+      expect(resolveWatcherPolling()).toEqual({ usePolling: false });
+    });
+  }
+
+  for (const value of ["1", "true", "on", "", "yes", "nope"]) {
+    test(`"${value}" leaves the polling default intact`, () => {
+      process.env.SURFBOARD_WATCH_POLLING = value;
+      expect(resolveWatcherPolling()).toEqual({});
+    });
+  }
+
+  test("unset leaves the polling default intact", () => {
+    delete process.env.SURFBOARD_WATCH_POLLING;
+    expect(resolveWatcherPolling()).toEqual({});
   });
 });

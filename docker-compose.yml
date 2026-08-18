@@ -33,6 +33,13 @@ services:
     ports:
       - "127.0.0.1:${SURFBOARD_PORT:-3000}:3000"
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    # The image's own layers are immutable; only the bind mount and /tmp are
+    # writable. This does NOT affect editing YAML on the host — bind mounts are
+    # separate mounts. It turns a misconfigured ADO_WORKSPACE_DIR into a loud
+    # failure instead of the container silently indexing /app/workspace.
+    read_only: true
+    tmpfs:
+      - /tmp
     volumes:
       - ./workspace:/workspace
     healthcheck:
