@@ -1,0 +1,37 @@
+# Keep the build context small and prevent secrets / local state from leaking
+# into the image.
+
+.git
+.github
+.gitignore
+.gitattributes
+.editorconfig
+.vscode
+.idea
+.DS_Store
+
+# Local env files. .env.example is intentionally not excluded.
+.env
+.env.*
+!.env.example
+
+# Build artifacts and caches — the image rebuilds dist/ from source.
+dist
+node_modules
+*.tsbuildinfo
+.cache
+.parcel-cache
+
+# Tests and developer docs — not needed in the runtime image.
+tests
+docs
+*.md
+!README.md
+
+# User's local workspace (YAML + SQLite cache).
+workspace
+
+# Misc
+coverage
+*.log
+logs

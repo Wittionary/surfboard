@@ -1,0 +1,43 @@
+# Default local launcher for Surfboard. `docker compose up` is the de facto
+# standard for running the app locally; `bun run dev` is reserved for active
+# source-tree development.
+#
+# The user's workspace lives on the host at ./workspace and is bind-mounted at
+# /workspace inside the container. The SQLite cache at
+# ./workspace/.surfboard/surfboard.db travels with the workspace, so cache and
+# YAML stay colocated and survive container rebuilds.
+
+services:
+  surfboard:
+    build:
+      context: .
+      args:
+        UID: ${HOST_UID:-1000}
+        GID: ${HOST_GID:-1000}
+    image: surfboard:local
+    container_name: surfboard
+    init: true
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # SURFBOARD_PORT in .env selects the HOST port (see ports: below). The
+      # server inside the container always listens on 3000, so this pin
+      # deliberately overrides whatever env_file supplies — otherwise a custom
+      # SURFBOARD_PORT would move the listener away from the published target.
+      SURFBOARD_PORT: 3000
+      # Same reason: these are host-relative paths in .env for `bun run dev`.
+      # Inside the container the bind mount is always at /workspace.
+      ADO_WORKSPACE_DIR: /workspace
+      ADO_TEMPLATE_DIR: /workspace/templates
+    ports:
+      - "127.0.0.1:${SURFBOARD_PORT:-3000}:3000"
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    volumes:
+      - ./workspace:/workspace
+    healthcheck:
+      test: ["CMD", "bun", "run", "scripts/healthcheck.ts"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s

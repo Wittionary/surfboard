@@ -18,7 +18,29 @@ async function main(): Promise<void> {
     }
   }
 
-  const app = buildApp({ config, dbHandle });
+  // Spec §120: the running app watches the workspace directory. Tests opt in
+  // explicitly; the real server is the only other place that should.
+  const app = buildApp({ config, dbHandle, startWatcher: true });
+
+  let shuttingDown = false;
+  const shutdown = (signal: NodeJS.Signals): void => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    log.info({ signal }, "shutdown requested");
+    void app
+      .close()
+      .catch((err) => log.error({ err }, "fastify close failed"))
+      .finally(() => {
+        try {
+          dbHandle?.close();
+        } catch (err) {
+          log.error({ err }, "sqlite close failed");
+        }
+        process.exit(0);
+      });
+  };
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 
   try {
     await app.listen({ host: config.serverHost, port: config.serverPort });

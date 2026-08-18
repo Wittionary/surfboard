@@ -15,6 +15,7 @@
     "verify:phase4": "bun run scripts/verify-phase4.ts",
     "verify:phase5": "bun run scripts/verify-phase5.ts",
     "verify:mvp": "bun run scripts/verify-mvp.ts",
+    "verify:container": "bun run scripts/verify-container.ts",
     "smoke:ado-read": "bun run scripts/smoke-ado-read.ts",
     "smoke:ado-write": "bun run scripts/smoke-ado-write.ts"
   },
